@@ -1,0 +1,259 @@
+---
+title: "Cointegração"
+author: "Henri Makika"
+date: "6/18/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, 
+                      fig.width = 10, fig.height = 6)
+```
+
+## Cointegração 
+
+Pour résumer le cours jusqu'à présent, on a vu :
+
+i. ARIMA
+ii. VAR
+iii. SVAR
+iv. Cointegração 
+
+Pour VAR la restriction est faite en utilisant la décomposition de Cholesky, c'est-à-dire on fait ordonner les variables selon que : exogène vs endogène. 
+
+Pour le modèle SVAR la restriction est fait sur base de la matrice A (Amat), voir aula 11. Il sied à noter que toutes les restrictions sont réalisées sur base de théories économiques à la base. VAR ne traite que les variables stationnaires, sinon il faut faire le test de RU et applique la différence dans le cas de une racine unitaire, applique encore la difference dans le cas de plus de racine unitaire. (même raisonnement pour SVAR).
+
+VAR donne les informations de court terme tandisque Cointégration donne l'information de long terme, et VECM donne les deux. 
+
+La Cointégration est la combinaison linéaire des variables non stationnaires et des variables qui sont intégrées de même ordre. 
+
+## Cointégration à la Engle-Granger et Phillips-Ouliares
+
+
+```{r}
+library(urca)
+library(MASS)
+library(vars)
+library(lmtest)
+#library(MTS) 
+```
+
+## Séries sintéticas
+
+
+```{r}
+set.seed(12345)
+e1 = rnorm(200)
+e2 = rnorm(200)
+
+y1 = cumsum(e1)
+y2 = 0.6*y1 + e2
+
+plot.ts(y1, xlab = "", ylab = "", main = "Cointegration")
+par(new = T)
+plot.ts(y2, col = "red")
+
+# La meilleure manière de présenter ce meme graphique est :
+
+plot.ts(y1, xlab = "", ylab = "", main = "Cointegration")
+lines(y2, col = "red")
+```
+
+## Procedimento Engle-Granger
+
+
+```{r}
+mod.reg = lm(y2 ~ y1)
+summary(mod.reg)
+```
+
+
+
+```{r}
+erro = residuals(mod.reg)
+
+erro.df = ur.df(erro, type = "none", lags = 0)
+plot(erro.df)
+```
+
+```{r}
+summary(erro.df)
+```
+
+La valeur du test -14.98 est hors interval de confiance, alors on rejet l'hypotèse nulle de non cointégration, la série est cointégrée. 
+
+
+```{r}
+erro.lag = erro[-c(1, 200)]
+dy1 = diff(y1)
+dy2 = diff(y2)
+
+diff.dat = data.frame(embed(cbind(dy1, dy2), 2))
+colnames(diff.dat) = c("dy1", "dy2", "dy1.1", "dy2.1")
+
+ecm.reg = lm(dy2 ~ erro.lag + dy1.1 + dy2.1, data = diff.dat)
+summary(ecm.reg)
+```
+
+
+
+
+```{r}
+erro1 = erro[-1]
+erro1.1 = cbind(erro1)
+
+dados = ts(cbind(dy1, dy2))
+
+modelo = VAR(dados, p = 1, type = "const", exogen = erro1.1)
+summary(modelo)
+```
+
+
+## Procedimento Phillips-Ouliares
+
+
+```{r}
+X = data.frame(y1, y2)
+cointest_X = ca.po(X, demean = "constant", lag = "short", type = "Pu")
+summary(cointest_X)
+```
+
+On rejet l'hypothèse nulle de non cointégration. nos séries sont cointégrées.
+
+
+```{r}
+cointest2_X = ca.po(X, demean = "constant", type = "Pz")
+summary(cointest2_X)
+```
+
+
+```{r}
+resid_coint = cointest_X@res[-c(1, 200)]
+pz.reg = lm(dy2 ~ resid_coint + dy1.1 + dy2.1, data = diff.dat)
+summary(pz.reg)
+```
+
+
+
+## Exercice 2
+
+```{r}
+library(readxl)
+
+Dados = read_excel("~/Videos/Unicamp_IE 2019/HO:236A Times Series/Aula 12/Indices.xlsx")
+Dadosindice = ts(Dados[,2:4], start = c(1998, 1), frequency = 12)
+
+dj = Dadosindice[,1]
+nasdaq = Dadosindice[,2]
+sp = Dadosindice[,3]
+
+coint_SPDJNasdaq = ca.po(Dadosindice, demean = "constant", type = "Pz")
+summary(coint_SPDJNasdaq)
+```
+
+Pas cointégrées, on passe au modèle VAR.
+
+## Modele VAR
+
+```{r}
+Dados2 = log(Dadosindice)
+
+
+```
+
+
+## Ordem de modelo
+
+
+```{r}
+ordem = VARselect(diff(Dados2), lag.max = 8, type = "none")
+ordem
+```
+
+
+## Estimation 
+
+
+
+```{r}
+modelo.var = VAR(diff(Dados2), p = 1, type = "none")
+summary(modelo.var)
+```
+
+## Diagnóstico do modelo 
+
+
+```{r}
+roots(modelo.var)
+```
+
+
+## Estabilidade dos parâmetros
+
+
+```{r}
+modelo.est = stability(modelo.var, type = "OLS-CUSUM")
+plot(modelo.est)
+```
+
+
+## Test de correlação serial
+
+
+```{r}
+modelo.pt.asy = serial.test(modelo.var, lags.pt = 4, type = "PT.asymptotic")
+modelo.pt.asy
+
+
+modelo.pt.adj = serial.test(modelo.var, lags.pt = 8, type = "PT.adjusted")
+modelo.pt.adj
+
+modelo.bg = serial.test(modelo.var, lags.bg = 4, type = "BG")
+modelo.bg
+plot(modelo.bg)
+```
+
+
+## Test de Normalidade
+
+
+```{r}
+modelo.norm = normality.test(modelo.var, multivariate.only = F)
+modelo.norm
+```
+
+
+## Test de causalidade
+
+
+```{r}
+grangertest(diff(log(nasdaq)) ~ diff(log(dj)), order = 1)
+grangertest(diff(log(dj)) ~ diff(log(nasdaq)), order = 1)
+
+grangertest(diff(log(nasdaq)) ~ diff(log(sp)), order = 1)
+grangertest(diff(log(sp)) ~ diff(log(nasdaq)), order = 1)
+
+grangertest(diff(log(dj)) ~ diff(log(sp)), order = 1)
+grangertest(diff(log(sp)) ~ diff(log(dj)), order = 1)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

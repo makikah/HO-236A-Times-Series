@@ -1,0 +1,355 @@
+---
+title: "Aula 12 - VAR - aula 3"
+author: "Jo?o Paulo F. Fenelon"
+date: "21 de maio de 2019"
+output: html_document
+---
+
+
+##Modelo VAR irrestrito
+
+Carregar pacotes
+
+```{r}
+library(MASS)
+library(urca)
+#library(MTS)  #pacote estat?stico geral
+library(vars)
+library(lmtest)
+```
+
+Carregar dados
+
+```{r}
+data(Canada)
+View(Canada)
+
+emp = Canada[,1]
+prod = Canada[,2]
+rw = Canada[,3]
+unemp = Canada[,4]
+layout(matrix(1:4, nrow = 2, ncol = 2))
+plot.ts(emp, main = 'Emprego')
+plot.ts(prod, main = 'Produtividade')
+plot.ts(rw, main = 'Sal?rio real')
+plot.ts(unemp, main = 'Desemprego')
+```
+
+Deve-se fazer teste de raiz unit?ria. Uma vez feito, segue-se ao passo a seguir.
+
+Toma-se a primeira diferen?a para an?lise gr?fica:
+
+```{r}
+demp = diff(Canada[,1])
+dprod = diff(Canada[,2])
+drw = diff(Canada[,3])
+dunemp = diff(Canada[,4])
+
+layout(matrix(1:4, nrow = 2, ncol = 2))
+plot.ts(demp, main = 'Emprego')
+plot.ts(dprod, main = 'Produtividade')
+plot.ts(drw, main = 'Sal?rio real')
+plot.ts(dunemp, main = 'Desemprego')
+```
+
+Identifica??o do modelo VAR
+
+```{r}
+ordem = VARselect(diff(Canada), lag.max = 8, type = 'const')  #O lag.max = 8 significa que o VAR ajusta modelos com at? 8 defasagens. Isto, geram-se 8 modelos. 
+ordem
+```
+
+A ordem dos crit?rio difere porque a fun??o penalidade de cada um ? diferente. Geralmente adota-se um, analisa-se o res?duo, e pode-se retornar a outro num processo de tentativa e erro. Aqui adota-se o modelo com lag 2 (= p=2).
+
+EStima??o do VAR (a partir da escolha pelo uso dos crit?rios de informa??o anteriormente aplicados):
+
+```{r}
+modelo = VAR(diff(Canada), p =2, type = 'const')  #Usa-se OLS
+modelo    #nota-se que se gera 4 blocos de resultados devido as 4 s?ries (equa??es).
+```
+
+Resumo por equa??o
+
+a) caso do emprego:
+```{r}
+summary(modelo, equation = 'e')
+plot(modelo, names = 'e')   #plot dos res?duos
+```
+
+Ra?zes
+
+```{r}
+roots(modelo, modulus = F)
+roots(modelo)
+```
+
+Uma vez que as ra?zes s?o menores que um, o sistema ? est?vel.
+
+AULA 11 - VAR - PARTE 2 - CONTINUA??O
+
+Estabilidade do modelo
+
+```{r}
+modelo.estab = stability(modelo, type = c("OLS-CUSUM"), h=0.15)
+plot(modelo.estab)
+```
+
+Correlograma #Os res?duos de cada uma das equa??es deve estar dentro de um intervalo de confian?a.
+
+Teste de autocorrela??o dos res?duos #verificar se as autocorrela??es s?o nulas: (a) teste de Portmanteau; (b) Teste de Box-Pierce (grandes amostras); (c) Teste de Ljung-Box (pequenas amostras); (d) teste LM.
+
+```{r}
+layout(matrix(1:4, nrow = 2, ncol = 2))
+acf(residuals(modelo)[,1], main = 'Employment')
+acf(residuals(modelo)[,2], main = 'Productivity')
+acf(residuals(modelo)[,3], main = 'Real Wages')
+acf(residuals(modelo)[,4], main = 'Unemployment')
+```
+
+Assim, aplica-se o teste de Portmanteau
+
+```{r}
+model.pt.asy = serial.test(modelo, lags.pt = 12, type = 'PT.asymptotic') #o lag 12 aqui aplicado desconsiderado o impacto do som?rio dos lags anteriores.
+model.pt.asy
+plot(model.pt.asy)
+```
+
+Teste de Ljung-Box
+
+```{r}
+model.pt.adj = serial.test(modelo, lags.pt = 12, type = 'PT.adjusted') 
+model.pt.adj
+plot(model.pt.adj)
+```
+
+Teste LM
+
+```{r}
+model.BG = serial.test(modelo, lags.bg = 12, type = 'BG')
+model.BG
+plot(model.BG)
+```
+
+Em todos esses testes, avalia-se o sistema. Baseia-se na matriz de vari?ncia do sistema. Quando se est? olhando os gr?ficos, olha-se por equa??o.
+
+Teste de normalidade
+
+a) Teste Jarque-Bera multivariado
+
+```{r}
+model.norm = normality.test(modelo, multivariate.only = F)  #O uso de "F" indica que se verifica n?o apenas a normalidade do modelo, mas tamb?m por equa??o.
+model.norm
+```
+
+Logo, n?o se rejeita a hip?tese nula para cada uma das equa??es; para o sistema, tamb?m n?o se rejeita a hip?tese nula.
+
+Mudan?a de ordena??o
+
+```{r}
+Canada2 = Canada[,c(3,1,2,4)] #do ex?geno ao mais end?geno
+modelo.alt = VAR(diff(Canada2), p=2, type = 'const')
+model.norm2 = normality.test(modelo.alt, multivariate.only = F)
+model.norm2
+```
+
+```{r}
+Canada3 = Canada[,c(3,2,1,4)] #do ex?geno ao mais end?geno
+modelo.alt2 = VAR(diff(Canada3), p=2, type = 'const')
+model.norm3 = normality.test(modelo.alt2, multivariate.only = F)
+model.norm3
+```
+
+Previs?o
+
+```{r}
+model.forec = predict(modelo.alt2, n.ahead = 10, ci=0.95)
+model.forec$fcst
+plot(model.forec)
+```
+
+Teste de causalidade de Granger  #y "Grange-causa" z; significa que os valores passados de y contribuem para prever os valores z. N?o significa causalidade (endogeneidade vs exogeneidade)
+
+```{r}
+grangertest(diff(e)~diff(rw), order=2, data = Canada2)  #sempre ? usado com vari?veis estacion?rias.
+```
+
+Isto ?, n?o se rejeita a hip?tese nula de que "y n?o causa-Granger z". Isto ?, usar duas defasagens (order=2) da varia??o do sal?rio real n?o contribuem para prever o emprego.
+
+Teste de Causalidade de Granger - usa-se o teste de bloco-exogeneidade (pois, analisa-se aqui as rela??es instant?neas entre as vari?veis)
+
+```{r}
+model.causal = causality(modelo.alt2, cause = c("rw", "prod", "e"))
+model.causal  #Tem-se aqui um teste conjunto de Granger em que rw, prod e e s?o avaliados se contribuiem na vari?vel desemprego:
+```
+
+Isto ?, rejeita-se a hip?tese nula de n?o causalidade instant?nea entre sal?rio real, produtividade e desemprego.
+
+O teste anterior corrigido por estimativas robustas (quando h? heterocedasticidade) ? calculado como:
+
+```{r}
+model.causal = causality(modelo.alt2, cause = c("rw", "prod", "e"),vcov. = vcovHC(modelo.alt2))
+model.causal
+```
+
+AULA 12 - VAR - PARTE 3 - CONTINUA??O
+
+Fun??o de resposta ao impulso
+
+```{r}
+modelo.fir = irf(modelo.alt2, impulse = 'rw', response = c('prod', 'e', 'U'), boot = T, cumulative = F, n.head = 16) #os passos ? frente = 16 ? definido arbitrariamente. boot = T significa que se gera um intervalo de confian?a baseado em simula??es de Monte Carlo. Caso haja interesse em observar o efeito cumulativo da varia??o do sal?rio na varia??o da produtividade, emprego e desemprego, basta deixar "cumulative = T"
+modelo.fir
+plot(modelo.fir)
+```
+
+Decomposi??o da vari?ncia
+
+```{r}
+modelo.decomp = fevd (modelo.alt2, n.ahead = 12)
+100*modelo.decomp$e  #? medida que os passos avan?am, a variabilidade do emprego torna-se mais explicada pelo sal?rio real e produtividade.
+```
+
+Exemplo do Bueno
+
+Carregam-se os dados
+
+```{r}
+library(readxl)
+DadosBueno <- read_excel("G:/Meu Drive/UNICAMP/3? Semestre/HO 236 - Econometria de S?ries Temporais/Aula 12/Dados Exemplo VAR1 Banco Central.xlsx")
+View(DadosBueno)  #OS DADOS N?O FORAM CARREGADOS DEVIDO O ARQUIVO ESTAR EM CSV.
+```
+
+Leitura dos dados
+
+```{r}
+Dados = ts(DadosBueno[,2:17], start = c(1994,9), frequency = 12)
+```
+
+Gr?fico das s?ries
+
+```{r}
+layout(matrix(1:4, nrow=2, ncol=2))
+plot(Dados[,1], main = 'Juros')
+plot(Dados[,2], main = 'C?mbio')
+plot(Dados[,3], main = 'Administrados')
+plot(Dados[,4], main = 'Livres')
+
+par(mfrow=c(1,1))
+#deve-se fazer depois disso teste(s) de raiz unit?ria
+```
+
+Nova ordenada??o
+
+```{r}
+Dados1 = Dados[,c(4,3,2,1,5,6,7,8,9,10,11,12,13,14,15,16)]
+View(Dados1)
+```
+
+Sele??o da ordem do VAR
+
+```{r}
+m = VARselect(Dados1[,1:4], lag.max = 8, type = 'const', exogen = Dados1 [,5:16])  #seleciona-se as vari?veis end?genas de 1-4;e as vari?veis ex?genas de 5-16. O lag.max = 8 significa que est?o sendo ajustados 8 modelos. A partir dos crit?rios de informa??o, seleciona-se a melhor especifica??o do melhor modelo.
+```
+
+Os crit?rios de informa??o indicam que se trata de um VAR(1). Assim, usa-se p = 1.
+
+```{r}
+modelo = VAR(Dados1[,1:4], p = 1, type = 'const', exogen = Dados1[,5:16])
+summary(modelo)
+```
+
+Ra?zes
+
+```{r}
+roots(modelo, modulus = F)
+roots(modelo)
+```
+
+Estabilidade do modelo
+
+```{r}
+modelo.estab = stability(modelo, type = c("OLS-CUSUM"))
+plot(modelo.estab)
+```
+
+Autocorrela??o dos res?duos
+
+```{r}
+layout(matrix(1:4, nrow = 2, ncol = 2))
+acf(residuals(modelo)[,1], main = 'Livre')
+acf(residuals(modelo)[,2], main = 'ADM')
+acf(residuals(modelo)[,3], main = 'C?mbio')
+acf(residuals(modelo)[,4], main = 'Juros')
+```
+
+Verifica-se que nos pre?os livres h? uma autocorrela??o entre os res?duos na defasagem 6. Para corrigir, a defasagem do modelo deve aumentar para 2. Isso exigir voltar as etapas anteriores e rodar novamente. Uma vez que o problema, e novamente com defasagem = 3, finalmente se resolve o problema com defasagem = 4.
+
+Teste de Portmanteau
+a) Box-Pierce
+
+```{r}
+model.pt.asy = serial.test(modelo, lags.pt = 12, type = 'PT.asymptotic')
+model.pt.asy
+plot(model.pt.asy)
+```
+
+b) Teste de Ljung-Box
+
+```{r}
+model.pt.adj = serial.test(modelo, lags.pt = 12, type = 'PT.adjusted') 
+model.pt.adj
+plot(model.pt.adj)
+```
+
+c) Teste LM
+
+```{r}
+model.BG = serial.test(modelo, lags.bg = 12, type = 'BG')
+model.BG
+plot(model.BG)   #A hip?tese nula aqui refere-se a n?o correla??o parcial entre as defasagens
+```
+
+Teste de normalidade
+
+a) Teste Jarque-Bera multivariado
+
+```{r}
+model.norm = normality.test(modelo, multivariate.only = F)  #O uso de "F" indica que se verifica n?o apenas a normalidade do modelo, mas tamb?m por equa??o.
+model.norm
+```
+
+Teste de heterocedasticidade
+
+```{r}
+modelo.arch = arch.test(modelo, lags.single = 12, lags.multi = 8, multivariate.only = F)  #lags.single faz o teste por equa??o; lags.multi faz o teste do sistema.
+modelo.arch
+```
+
+Teste de Causalidade
+
+```{r}
+modelo.causal = causality(modelo, cause = c('Cam', 'Juros'), vcov=vcovHC(modelo))
+modelo.causal
+```
+
+```{r}
+grangertest(Livres~Juros, order = 4, data = Dados1)
+grangertest(Livres~Cam, order = 4, data = Dados1)
+```
+
+Fun??o resposta ao impulso
+
+```{r}
+modelo.fir = irf(modelo, impulse = c('Cam', 'Juros'),
+                 response = c('Livres'),
+                 boot = T, cumulative = F, n.head = 16)
+plot(modelo.fir)
+```
+
+
+Decomposi??o da vari?ncia
+
+```{r}
+modelo.decomp = fevd (modelo, n.ahead = 12)
+100*modelo.decomp$Livres
+```
+

@@ -1,0 +1,981 @@
+---
+title: "Analyse des systèmes intégrés et cointégrés des séries temporelles"
+author: "Henri Makika^[University of Campinas, São Paulo. Email : hd.makika@gmail.com]"
+date: "Junho 1, 2019"
+output: 
+  pdf_document: 
+  toc : true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE,
+                      fig.width = 12, fig.height = 8)
+```
+
+# Introduction 
+
+Dans ce travail, nous analysons des systèmes intégrés et cointégrés en utilisant le langage R, version R Markdown. Premièrement, nous présentons la série univariée avec toute ses caractéristiques et en second lieu, nous présentons une analyse multivariée de séries temporelles intégrant les modèles VAR, SVAR, Cointégration, VECM et SVECM. Nous terminerons notre analyse avec les modèles ARCH et GARCH. 
+
+# Séries temporelles univariées
+
+Une série temporelle discrète est définie comme une séquence ordonnée de nombres aléatoires par rapport au temps. Plus formellement, un tel processus stochastique peut être écrit comme suit:
+
+$$y(s, t), s\in \varsigma, t\in \nu$$
+
+Où $t\in \nu, y(., t)$ est une variable aléatoire dans l'espace $\varsigma$ et une réalisation de ce processus stochastique est donné par $y(s,.)$ pour chaque $s\in \varsigma$ en ce qui concerne un moment donné $t\in \nu$.
+
+## 1 Présentation graphique d'un processus stochastique
+
+```{r}
+library(urca)
+data(npext)
+attach(npext)
+head(npext)
+```
+
+
+```{r}
+x = ts(na.omit(npext$realgnp), start = 1909, end = 1988, frequency = 1)
+y = ts(exp(na.omit(npext$unemploy)), start = 1909, end = 1988, frequency = 1)
+z = ts(exp(na.omit(npext$wages)), start = 1909, end = 1988, frequency = 1)
+w = ts(exp(na.omit(npext$interest)), start = 1909, end = 1988, frequency = 1)
+par(mfrow = c(2,2))
+plot(x, xlab = "", ylab = "", main = "logarithm of real gnp")
+plot(y, xlab = "", ylab = "", main = "unemployment rate in percent")
+plot(z, xlab = "", ylab = "", main = "Wages")
+plot(w, xlab = "", ylab = "", main = "Interest")
+```
+
+## 2 Stationnarité
+
+1. Faible stationnarité : La forme améliorée d'un processus stationnaire est appelée faiblement stationnaire et est définie comme suit: 
+
+$$E[y_t] = \mu<\infty, \forall t \in \varsigma$$
+$$E[(y_{t} - \mu)(y_{t-j} - \mu)] = \gamma_t, \forall t \in \varsigma$$
+
+
+Comme seuls les deux premiers moments théoriques du processus stochastique doivent être définis et qu’ils sont constants et finis dans le temps, ce processus est également appelé stationnaire ou covariance du second ordre.
+
+2. Stationnarité stricte : Le concept de processus strictement stationnaire est défini comme suit:
+
+$$F[{y_1, y_2,...,y_t,...,y_T}] = F[y_{1+j}, y_{2+j},...,y_{t+j},...,y_{T+j}]$$
+
+Où $F{[.]}$ est la fonction de distribution conjointe et $\forall t, j \in \varsigma$.
+
+Par conséquent, si un processus est strictement stationnaire avec des moments finis, alors il doit également être stationnaire. Bien que les processus stochastiques puissent être configurés pour être stationnaires par covariance, il ne faut pas que ce soit un processus strictement stationnaire. Ce serait le cas, par exemple, si la moyenne et les autocovariances n'étaient pas des fonctions du temps mais des moments plus élevés.
+
+## 3 Bruit blanc
+
+Un processus est dit *bruit blanc* lorsqu'il est défini comme:
+
+$$E(\varepsilon_t) = 0$$
+$$E(\varepsilon_{t}^2) = \delta^{2}$$
+$$E(\varepsilon_t, \varepsilon_{\tau}) = 0, \forall t \neq \tau$$
+
+On suppose que $\varepsilon_t$ est normalement distribué: $\varepsilon_t \sim N(0, \delta^2)$. Si les hypothèses 1 et 2 sont modifiées par cette hypothèse, alors le processus est dit processus bruit blanc normal ou gaussien. De plus, la dernière hypothèse est parfois remplacée par la plus forte hypothèse d’indépendance. Si tel est le cas, le processus est dit processus bruit blanc indépendant. Veuillez noter que pour les variables aléatoires normalement distribuées, la non corrélation et l'indépendance sont équivalentes. Autrement, l'indépendance est suffisante pour le découplage mais pas l'inverse. Voici l'exemple d'un processus bruit blanc :
+
+
+```{r}
+set.seed(12345)
+gwn = rnorm(100)
+layout(matrix(1:4, ncol = 2, nrow = 2))
+plot.ts(gwn, xlab = "", ylab = "")
+abline(h = 0, col = "red")
+acf(gwn, main = "ACF")
+qqnorm(gwn)
+pacf(gwn, main = "PACF")
+```
+
+## 4 Ergodicité
+
+Ergodicité fait référence à un type d'indépendance asymptotique. Plus formellement, l’indépendance asymptotique peut être définie comme:
+
+$$|F(y_{1}, y_{2},...,y_{T}, y_{j+1}, y_{j+2},...,y_{j+T}) - F(y_{1}, y_{2},...,y_{T}) F(y_{j+1}, y_{j+2},...,y_{j+T})|\rightarrow 0$$
+
+Où $j \rightarrow \infty$. La distribution conjointe de deux sous-séquences d'un processus stochastique $[y_{t}]$ est égale au produit des fonctions de distribution marginales, plus les deux sous-séquences sont éloignées l'une de l'autre. Un processus stochastique stationnaire est ergodique si :
+
+$$\lim_{T\to0} \frac{1}{T}\sum_{j=1}^T E[y_{t}-\mu][y_{t+j}-\mu] = 0, tient.$$
+
+Cette équation serait satisfaite si les autocovariances tendent à zéro avec l'augmentation de $j$.
+
+L’indépendance asymptotique signifie que deux réalisations d’une série chronologique se rapprochent de plus en plus de l’indépendance, plus elles se séparent par rapport au temps.
+
+## 5 Théorème
+
+Toute série temporelle stationnaire de covariance $y_{t}$ peut être représentée sous la forme:
+
+$$y_{t} = \mu + \sum_{j=0}^\infty \psi_j \varepsilon_{t-j}, \varepsilon_{t} \sim WN(0,\delta^2)$$
+$$\psi_0 = 1, \sum_{j=0}^\infty \psi_{j}^2 < \infty$$
+
+Avec comme caractéristiques :
+
+i. Moyenne fixe : $E[y_t] = \mu$
+ii. Variance finie : $\gamma_0 = \delta^2 \sum_{j=0}^\infty \psi_{j}^2 < 0$
+
+## 6 Méthodologie Box et Jenkins
+
+i. Modèles à moyenne mobile autorégressifs (ARMA)
+ii. Forme approximative d'une série temporelle stationnaire par un modèle paramétrique parcimonieux
+iii. Modèle ARMA (p, q) se présente comme suit:
+
+
+$$y_t - \mu = \phi_1(y_{t-1} - \mu) +...+\phi_p(y_{t-p} - \mu) + \varepsilon_t + \theta_1\varepsilon_{t-1}+...+\theta_q\varepsilon_{t-q}$$
+$$\varepsilon_{t} \sim WN(0, \delta^2)$$
+
+Extension pour les séries temporelles intégrées est la classe de modèle ARIMA(p,d,q).
+
+
+## 7 Procédure
+
+i. Si cela est nécessaire, transformez les données, de manière à obtenir la stationnarité de covariance;
+ii. Inspectez, les graphiques d'autocorrélation, ACF et d'autocorrélation partielle, PACF pour les suppositions initiales de p et q;
+iii. Estimez le modèle proposé;
+iv. Vérifiez les résidus (tests de diagnostic) et la stationnarité du processus;
+v. Si le point iv échoue, passez au point ii et recommencez. En cas de doute, choisissez la spécification de modèle la plus parcimonieuse.
+
+
+```{r}
+library(dse1)
+library(forecast)
+library(stats)
+```
+
+### Exemple du modèle ARMA(2,0)
+
+
+
+```{r}
+set.seed(12345)
+x.ex = arima.sim(n = 500, list(ar = c(0.9, -0.4)))
+layout(matrix(1:3, nrow = 3, ncol = 1))
+plot(x.ex, xlab = "", main = "Time series plot")
+abline(h = 0, col = "red")
+acf(x.ex, main = "ACF of x.ex")
+pacf(x.ex, main = "PACF of x.ex")
+arma20 = arima(x.ex, order = c(2, 0, 0), include.mean = FALSE)
+result = matrix(cbind(arma20$coef, sqrt(diag(arma20$var.coef))), nrow = 2)
+rownames(result) = c("ar1", "ar2")
+colnames(result) = c("estimate", "s.e.")
+result
+```
+
+### Processus non stationnaire 
+
+De nombreuses séries chronologiques économiques ou financières présentent un comportement de tendance. D'où il faut déterminer la forme la plus appropriée de cette tendance. Une série temporelle est dit stationnaire, c'est lorsque les moments sont invariants dans le temps. En distinction au processus non stationnaire qui, ce dernier leurs moments sont dépendants du temps (principalement moyenne et variance). 
+
+### Décomposition en cycle de tendance
+
+$$y_{t} = TD_{t} + Z_{t}$$
+$$TD_{t} = \beta_1 + \beta_2 . t$$
+$$\phi(L)Z_t = \theta(L)\varepsilon_t, \varepsilon_t \sim WN(0, \delta^2)$$
+$$\phi(L) = 1-\phi_1L-...-\phi_pL^p$$
+$$\theta(L) = 1+\theta_1L+...+\theta_qL^q$$
+
+En supposant que $\phi(Z) = 0$ a au plus une racine unitaire complexe autour du cercle et $\theta(Z) = 0$ a toutes les racines unitaire en dehors du cercle.
+
+### Série Temporelle Stationnaire en tendance
+
+La série $y_t$ est stationnaire si les racines de $\phi(z) = 0$ sont en dehors du cercle unitaire. 
+Nous donnons ici l'exemple d'une série temporelle stationnaire en tendance.
+
+```{r}
+set.seed(12345)
+x.ar2 = 5 + 0.5 * seq(250) + arima.sim(list(ar = c(0.8, -0.2)), n = 250)
+plot(x.ar2, ylab = "", xlab = "", main = "Trend Stationary Time Series")
+abline(a = 5, b = 0.5, col = "blue")
+```
+
+
+### Séries Temporelles Stationnaires en Différence
+
+La série $y_t$ est stationnaire en différence si $\phi(z) = 0$ a une racine unitaire sur le cercle des unités et les autres sont en dehors du cercle des unités. Nous présentons ici la stationnarité en différence d'une série temporelle. 
+
+
+```{r}
+set.seed(12345)
+u.ar2 <- arima.sim(list(ar = c(0.8, -0.2)), n = 250)
+x1 <- cumsum(u.ar2)
+TD <- 5.0 + 0.7 * seq(250)
+x1.d <- x1 + TD
+layout(matrix(1:2, nrow = 2, ncol = 1))
+plot.ts(x1, main = "I(1) processus sans dérive", ylab="", xlab = "")
+plot.ts(x1.d, main = "I(1) processus avec dérive", ylab = "", xlab = "")
+abline(a = 5, b = 0.7, col = "red")
+```
+
+Considérons la décomposition suivante en cycle de tendance d’une série temporelle $y_T$:
+
+$$y_t = TD_t + Z_t = TD_t + TS_t + C_t$$
+
+Où $TD_t$ signifie la tendance déterministe, $TS_t$ est la tendance stochastique et $C_t$ est un composant stationnaire.
+
+i. Test de racine unitaire:$H_0 : TS_t \neq 0, H_1: TS_t = 0, y_t \sim I(1) et y_t \sim I(0)$;
+ii. Test de stationnarité : $H_0 : TS_t = 0 , H_1 : TS_t \neq 0, y_t\sim I(0) et y_t \sim I(0)$.
+
+Les tests sont basés sur le cadre suivant :
+
+$$y_t = \phi y_{t-1} + \mu_t, \mu_t \sim I(0)$$
+
+Avec comme : 
+
+i. $H_0: \phi = 1, H_1 : |\phi| < 1$
+ii. Test de ADF : La corrélation sérial dans $\mu_t$ est capturée par
+structure paramétrique autorégressive du test.
+iii. PP test : test non paramétrique, basée sur la variance estimée à long terme de $\Delta y_t$. 
+
+### Test de racine unitaire
+
+1. ADF test
+
+```{r}
+x1.adf = ur.df(x1, type = "none", lags = 2)
+dx1.adf <- ur.df(diff(x1), type = "none", lags = 1)
+plot(x1.adf)
+plot(dx1.adf)
+```
+
+
+```{r}
+summary(x1.adf)
+```
+
+```{r}
+summary(dx1.adf)
+```
+
+2. PP test 
+
+Ce test de Phillips et Perron est basé sur :
+
+$$\Delta y_t = \beta^"D_t + \pi y_{t-1} + \mu_t, \mu_t \sim I(0) $$
+
+```{r}
+x1.pp.ts <- ur.pp(x1, type = "Z-tau", model = "trend", lags = "short")
+dx1.pp.ts <- ur.pp(diff(x1), type = "Z-tau", model = "trend", lags = "short")
+plot(x1.pp.ts)
+#plot(dx1.pp.ts)
+#summary(x1.pp.ts)
+#summary(dx1.pp.ts)
+```
+
+Les tests ADF et PP sont asymptotiquement équivalents. Le test de PP a de meilleures propriétés d’échantillonnage que l’ADF. Les deux ont une faible puissance contre $I(0)$ alternatives proches $I(1)$ processus. La puissance des tests diminue à mesure que les termes déterministes sont
+ajouté à la régression.
+
+3. Elliot, Rothenberg et Stock
+
+$$y_t = d_t + \mu_t$$
+$$\mu_t = au_{t-1} + v_t$$
+
+
+```{r}
+set.seed(12345)
+u.ar1 <- arima.sim(list(ar = 0.99), n = 250)
+TD <- 5.0 + 0.7 * seq(250)
+x1.ni <- cumsum(u.ar1) + TD
+x1.ers <- ur.ers(x1.ni, type = "P-test", model = "trend", lag = 1)
+x1.adf <- ur.df(x1.ni, type = "trend")
+plot.ts(x1.ni, xlab = "", ylab = "")
+summary(x1.ers)
+summary(x1.adf)
+```
+
+4. Test de Schmidt et Phillips
+
+Problème des tests de DF type: les paramètres de nuisance, c'est-à-dire les coefficients des régresseurs déterministes, ne sont pas définis ou ont une interprétation différente sous l'hypothèse alternative de la stationnarité.
+
+Pour résoudre ce problème, la solution est d'effectuer le test de type LM, qui a le même ensemble de paramètres de nuisance sous l'hypothèse nulle et alternative. Les polynômes plus élevés qu'une tendance linéaire sont alors autorisés. Le modèle se présente ainsi :
+
+$$y_t = \alpha + Z_t \delta + x_t, x_t = \pi x_{t-1} + \varepsilon_t$$
+
+Le test de regréssion est alors : $\Delta y_t = \Delta Z_t \gamma + \phi S_{t-1} + v_t$
+
+```{r}
+set.seed(12345)
+y1 <- cumsum(rnorm(250))
+TD <- 5.0 + 0.7 * seq(250) + 0.1 * seq(250)^2
+y1.d <- y1 + TD
+plot.ts(y1.d, xlab = "", ylab = "")
+y1.d.sp <- ur.sp(y1.d, type = "tau", pol.deg = 2, signif = 0.05)
+summary(y1.d.sp)
+```
+
+5. Test de Zivot et Andrews
+
+Problème: il est difficile de distinguer statistiquement une série $I(1)$ d’une série stable $I(0)$ qui est contaminée par un décalage structurel. Si le point de rupture est connu: on utilise les tests de Phillips et Perron et Vogelsang. Mais risque d’exploration de données si le point de rupture est déterminé de manière exogène. 
+
+Solution: il faut donc déterminer de manière endogène le point de rupture potentiel; d'où on fait appel au test Zivot et Andrews.
+
+
+```{r}
+set.seed(12345)
+u.ar2 <- arima.sim(list(ar = c(0.8, -0.2)), n = 250)
+TD1 <- 5 + 0.3 * seq(100)
+TD2 <- 35 + 0.8 * seq(150)
+TD <- c(TD1, TD2)
+y1.break <- u.ar2 + TD
+plot.ts(y1.break, xlab = "", ylab = "")
+y1.break.za <- ur.za(y1.break, model = "trend", lag = 2)
+plot(y1.break.za)
+y1.break.df <- ur.df(y1.break, type = "trend", lags = 2)
+plot(y1.break.df)
+```
+
+### Test de stationnarité 
+
+Le modèle se présente comme suit :
+
+$$y_t = \beta D_t + \mu_t, \mu_t \sim I(0)$$
+$$\mu_t = \mu_{t-1} + \varepsilon_t, \varepsilon_t \sim WN(0, \delta^2)$$
+
+Avec comme hypothèse nulle et alnertative : $H_0: \delta_{\varepsilon}^2 = 0, H_1: \delta_{\varepsilon}^2 > 0$
+
+
+```{r}
+set.seed(12345)
+u.ar2 = arima.sim(list(ar = c(0.8, -0.2)), n = 250)
+TD1 = 5 + 0.3 * seq(250)
+TD2 = rep(3, 250)
+y1.td1 = u.ar2 + TD1
+y1.td2 = u.ar2 + TD2
+y2.rw = cumsum(rnorm(250))
+y1td1.kpss = ur.kpss(y1.td1, type = "tau")
+y1td2.kpss = ur.kpss(y1.td2, type = "mu")
+y2rw.kpss = ur.kpss(y2.rw, type = "mu")
+plot(y1td1.kpss)
+plot(y1td2.kpss)
+plot(y2rw.kpss)
+```
+
+Il est aussi possible d'effectuer les testsde normalité de résidus et le test d'hétéroscédasticité. Mais nous le verrons plus tard dans les séries multivariées. 
+
+# Séries temporelles multivariées 
+
+i. Stationary VAR(p)-models
+ii. SVAR models
+iii. Cointegration: Concept, models and methods
+iv. SVEC models
+
+
+## 1 Modèle VAR
+
+Le processus VAR(p) est défini comme:
+
+$$y_t = A_1y_{t-1} + ...+A_py_{t-p} + CD_t + \mu_t$$
+
+Où $A_1$ est la matrice de coefficients pour $i = 1, 2,...,p$, $\mu_t$ est le processus *bruit blanc* de dimension K avec matrice de covariance définie positive invariante dans le temps $E(\mu_t\mu_{t}^") = \sum_\mu$, $C$ est la matrice de coefficients de régresseurs potentiellement déterministes et $D_t$ un vecteur colonne tenant les régresseurs déterministe approprié
+régresseurs.
+
+### 1 Sélection empirique de l'ordre de décalage
+
+$$AIC(p) = log \det(\sum_{\mu}(p)) + \frac{2}{T}pK^2$$
+$$HQ(p) log \det(\sum_{\mu}(p)) + \frac{2 log(log(T))}{T}pK^2$$
+$$SC(p) = log \det(\sum_{\mu}(p)) + \frac{log(T)}{T}pK^2$$
+$$FPE(p) = (\frac{T+p^*}{T-p^*}) \det(\sum_{\mu}(p))$$
+
+Avec $\sum_{\mu}(p) = T^{-1} \sum_{t=1}^{T}\hat{\mu_{t}}\hat{\mu_{t}'}$ est le nombre total de paramètres dans chaque équation et $p$ attribue l'ordre de décalage. 
+
+La simulation de processus VAR avec le package dse1 de R et l'estimation de processus VAR avec les packages dse1 et vars.
+
+
+```{r}
+library(dse1)
+library(vars)
+Apoly = array(c(1.0, -0.5, 0.3, 0, 0.2, 0.1, 0, -0.2, 0.7, 1, 0.5, -0.3) , c(3, 2, 2))
+B = diag(2)
+var2 <- ARMA(A = Apoly, B = B)
+varsim <- simulate(var2, sampleT = 500, noise = list(w = matrix(rnorm(1000),
+                                                                nrow = 500, ncol = 2)), 
+                   rng = list(seed = c(123456)))
+vardat = matrix(varsim$output, nrow = 500, ncol = 2)
+colnames(vardat) = c("y1", "y2")
+infocrit <- VARselect(vardat, lag.max = 3, type = "const")
+varsimest <- VAR(vardat, p = 2, type = "none")
+roots <- roots(varsimest)
+plot(varsimest)
+```
+
+```{r}
+summary(varsimest)
+```
+
+Le tableau ci-haut nous donne les résultats du modèle VAR(2) simulé (voir graphique) et du VAR estimé (voir tableau). Pour les deux estimations (y1 et y2) on remarque les coefficients des modèles estimés sont statistiquement significatifs. Plus bas du tableau des résultats, on a la matrice de covariance et la matrice de corrélations résiduelles. 
+
+
+```{r}
+print(infocrit)
+```
+
+Ci-haut représente le tableau de critère c'est-à-dire le choix du modèle à estimer et de selection empirique du décalage.
+
+
+```{r}
+varsimest.stability = stability(varsimest, type = "OLS-CUSUM")
+plot(varsimest.stability)
+```
+
+### 2 Diagnostique de tests 
+
+i. Corrélation de série: test de Portmanteau, Breusch et Godfrey;
+ii. Hétéroscédasticité: test de ARCH;
+iii. Normalité: tests de Jarque et Bera, de Skewness et de Kurtosis;
+iv. Stabilité structurelle: tests de EFP, CUSUM, CUSUM-of-Squares, Test de fluctuation, etc.
+
+Nous allons à présent montrer comment le diagnostique des tests est obtenu sur R avec l'estimation du modèle VAR(2) ci-haut.
+
+
+```{r}
+var2c.serie = serial.test(varsimest)
+print(var2c.serie)
+var2c.arch = arch.test(varsimest)
+print(var2c.arch)
+var2c.norm = normality.test(varsimest)
+print(var2c.norm)
+plot(var2c.serie)
+```
+
+Ci-aut, sont présentés les tests de corrélation de séries, suivi du test d'hétéroscédasticité et enfin le test de normalité résiduelle. Notre estimation montre que les erreurs sont normalement distribuées et que l'hypothèse nulle ne peut être rejetée. Encore l'hypothèse nulle d'homoscédasticité est maintenue. Les p-values de nos estimations sont bien supérieures au seuil de 5%. À présent, nous présentons le test de stabilité structurelle. 
+
+
+```{r}
+reccusum.stab = stability(varsimest, type = "Rec-CUSUM")
+plot(reccusum.stab)
+fluctuation.stab = stability(varsimest, type = "fluctuation")
+plot(fluctuation.stab)
+```
+
+### 3 Causalités
+
+Nous avons la causalité au sens de Granger et la causalité instantanée. 
+
+1. Causalité Granger :
+
+$$y_{i,t} = \sum_{i=1}^p \alpha_{it}y_{i,t-1} + CD_{t} + \mu_{it}$$
+
+Hypothèse nulle: le sousvecteur $y_{1t}$ ne cause pas au sens de Granger $y_{2t}$, qui est défini par $\alpha_{21}, i = 0$ pour $i = 1, 2,..., p$.
+
+L’hypothèse alternative est: $\exists \alpha_{21}, i  \neq 0$ pour $i = 1,2,...,p$.
+
+Test statistique: $F (pK_1 K_2, KT - n')$, avec $n'$ égal au total de nombre de paramètres dans le processus VAR(p) ci-dessus, y compris les régresseurs déterministes.
+
+2. Causalité instantanée :
+
+L'hypothèse nulle pour la causalité non instantanée est définie comme suit: $C_{\delta} = 0$, où $C$ est une matrice $(N x K(K+1)/2)$ de rang $N$, qui selectionne les co-variances pertinentes de $\mu_{1t}$ et $\mu_{2t}$. 
+
+
+```{r}
+var.cause = causality(varsimest, cause = "y2")
+print(var.cause)
+```
+
+### 4 Prédiction
+
+Les prédictions récursives et la matrice de covariance d'erreur prévue. Les prédictions récursives sont présentées selon l'équation :
+
+$$y_{T+1|T} = A_1 y_T +...+A_p y_{T+1-p} + CD_{T+1}$$
+
+```{r}
+prediction = predict(varsimest, n.ahead = 25)
+plot(prediction)
+fanchart(prediction)
+```
+
+### 5 Fonction de réponse impulsionnelle, IRF
+
+i. Basé sur la décomposition de *Wold* d'un VAR(p) stable;
+ii. Étudier les interactions dynamiques entre le système endogène des variables;
+iii. Les coefficients $(i,j)$ des matrices $\Theta_s$ sont ainsi interprétés comme la réponse attendue de la variable $y_{i, t + s}$ à un changement d’unité de la variable $y_{jt}$;
+iv. Peut être cumulé dans le temps $s = 1,2,...$: l'impact d’un changement d’unité de la variable $j$ sur la variable $i$ au temps $s$;
+v. Réponses impulsionnelles orthogonalisées: les chocs sous-jacents sont moins susceptibles de se produire de manière isolée (dérivée de la décomposition de Cholesky).
+
+Sur R, voyons la réponse de la variable y1 sur y2 et vice versa.
+
+```{r}
+irf.y1 = irf(varsimest, impulse = "y1", response = "y2", n.ahead = 10, ortho = FALSE,
+cumulative = FALSE, boot = TRUE, seed = 12345)
+irf.y2 = irf(varsimest, impulse = "y2", response = "y1", n.ahead = 10, ortho = FALSE,
+cumulative = FALSE, boot = TRUE, seed = 12345)
+par(mfrow = c(2,1))
+plot(irf.y1)
+plot(irf.y2)
+```
+
+### 6 Décomposition de la variance d'erreur prévue, FEVD
+
+i. FEVD est basé sur des matrices de coefficients de réponse impulsionnelle orthogonalisées $\Psi_n$;
+ii. Analyser la contribution de la variable $j$ à la prévision de variance d'erreur de la variable $k$.
+
+
+```{r}
+fevd.var2 = fevd(varsimest, n.ahead = 10)
+plot(fevd.var2)
+```
+
+## 2 Modèle SVAR
+
+Le modèle VAR peut être considéré comme un modèle de forme réduite. Le modèle SVAR est sa forme structurelle et est défini comme:
+
+$$Ay_t = A_{1}' y_{t-1} +...+A_{p}' y_{t-p} + B \varepsilon_t$$
+
+Erreurs structurelles: $\varepsilon_t$ est un bruit blanc. Matrices de coefficients: $A_{i}'$ pour $i = 1,..., p$, sont des coefficients structurels qui pourraient différer de leurs équivalents sous forme réduite.
+
+Le modèle SVAR est utilisé pour identifier les chocs et les retracer par IRF et, ou FEVD en imposant des restrictions aux matrices A et, ou B.
+
+Les résidus de forme réduite peuvent être extraits d’un modèle SVAR en $\mu_t = A^{-1}B\varepsilon_t$ et sa matrice de variance-covariance par $\sum_{\mu} = A^{-1} BB' A^{-1'}$.
+
+Dans le modèle $A$, $B$ est défini sur $I_K$ (nombre minimal de restrictions pour l'identification $K(K-1)/2$). Dans le modèle $B$, $A$ est défini sur $I_K$ (nombre minimal de restrictions pour l'identification $K(K-1)/2$). Le modèle AB, des restrictions peuvent être imposées aux deux matrices (le nombre minimal de restrictions d'identification est $K^2+K(K-1)/2$).
+
+L'estimation est réalisée directement en minimisant le négatif du log-vraisemblance :
+
+$$lnL_{c}(A,B) = -\frac{KT}{2} ln(2\pi) + \frac{T}{2}ln|A|^{2} - \frac{T}{2}ln|B|^{2} - \frac{T}{2}tr(A'B^{-1'} B'A \sum_{\mu})$$
+
+L'algorithme de score a été proposé par Amisano et Giannini (1997).
+
+```{r}
+data("Canada")
+A <- diag(4)
+diag(A) = NA
+A[1, 2] = NA
+A[1, 3] = NA
+A[3, 2] = NA
+A[4, 1] = NA
+varest = VAR(Canada, p = 2, type = "none")
+svarA = SVAR(varest, estmethod = "direct", Amat = A, Bmat = NULL, hessian = TRUE, 
+             method = "BFGS")
+svarA
+```
+
+
+```{r}
+svarB = SVAR(varest, estmethod = "scoring", Amat = A, Bmat = NULL, hessian = TRUE, 
+             method = "BFGS")
+svarB
+```
+
+
+### 1 Analyse de réponse impulsionnelle
+
+Les coefficients de réponse impulsionnelle pour le modèle SVAR sont tirés de :
+
+$$\Theta_i = \phi_i A^{-1} B, i=1,2,...,n$$ 
+
+
+```{r}
+irf.svar.rw = irf(svarA, impulse = "rw", response = "e", n.ahead = 10, cumulative = FALSE, 
+             boot = FALSE, seed = 12345)
+irf.svar.prod = irf(svarB, impulse = "rw", response = "prod", n.ahead = 10, cumulative = FALSE, 
+             boot = FALSE, seed = 12345)
+plot(irf.svar.rw)
+plot(irf.svar.prod)
+
+```
+
+
+### 2. Décomposition de la variance d'erreur prévue 
+
+Les erreurs de prévision de $y_{T+h|T}$ sont dérivées des réponses impulsionnelles de SVAR et la dérivation de la décomposition de la variance d'erreur de prévision est similaire à celle décrite pour les VAR.
+
+
+```{r}
+fevd.svarb = fevd(svarA, n.ahead = 10)
+plot(fevd.svarb)
+```
+
+
+## 3 Cointrégation
+
+### 1 Problème de régression fausse
+
+$I(1)$ les variables non cointégrées sont régressées sur chacune autre. Les coefficients de pente de régression ne convergent pas en probabilité zéro. Les t-statistiques divergent de plus ou moins l'infinie. Le coefficient de détermination tant vers l'unité. Il faut toujours être prudent lorsque le coefficient de déterminantion est supérieur à la statistique DW. 
+
+
+```{r}
+library(lmtest)
+set.seed(54321)
+e1 = rnorm(500)
+e2 = rnorm(500)
+y1 = cumsum(e1)
+y2 = cumsum(e2)
+sr.reg1 = lm(y1 ~ y2)
+sr.dw = dwtest(sr.reg1)
+sr.reg2 = lm(diff(y1) ~ diff(y2))
+plot.ts(y1, xlab = "", ylab = "", main = "Not Cointegrated")
+lines(y2, col = "blue")
+```
+
+Le graphique ci-haut nous montre le comportement de deux variables non cointégrés. Les statistiques des tests sont visualisées en faisant la commande *summary(sr.reg1)* pour la régression simple et *summary(sr.reg2)* pour la régression en différence. 
+
+
+On dit que les composantes d'un vecteurs $y_{t}$ sont cointégrées de l'ordre $d,b$ noté $y_{t} \sim CI(d, b)$, si $(a)$ toutes les composantes de $y_{t}$ sont $I(d)$ et $b$ un vecteur $\beta (\neq 0)$ existe pour que $z_t = \beta' y_{t} \sim I(d-b)$, $b>0$. Le vecteur $\beta$ est appelé *vecteur de cointégration*. 
+
+Si le vecteur $y_{t}$, où $(n x 1)$ est cointégré avec $0<r<n$ vecteurs de cointégration, il existe $n-r$ tendances stochastiques courantes notée $I(1)$. 
+
+
+```{r}
+set.seed(12345)
+e1 = rnorm(250, mean = 0, sd = 0.5)
+e2 = rnorm(250, mean = 0, sd = 0.5)
+u.ar3 = arima.sim(model = list(ar = c(0.6, -0.2, 0.1)), n = 250, innov = e1)
+y2 = cumsum(e2)
+y1 = u.ar3 + 0.5*y2
+ymax = max(c(y1, y2))
+ymin = min(c(y1, y2))
+
+layout(matrix(1:2, nrow = 2, ncol = 1))
+plot(y1, xlab = "", ylab = "", ylim = c(ymin, ymax), main = "Cointegrated System")
+lines(y2, col = "green")
+
+plot(u.ar3, ylab = "", xlab = "", main = "Cointegrating Residuals")
+abline(h = 0, col = "red")
+```
+
+Nous voyons bien sur le graphique que nos deux systèmes sont cointégrés. 
+
+### 2 Cointégration et Modèle à correction d'erreur, ECM
+
+Soit le système cointégré ci-après : $I(1), y_{t} = (y_{1,t}, y_{2,t})$ avec vecteur de cointégration $\beta = (1, -\beta_{2})'$, un ACM existe sous la forme :
+
+$$\Delta y_{1,t} = \alpha_{1} + \gamma_{1}(y_{1,t-1}-\beta_{2}y_{2,t-1}) + \sum_{i=1}^{K} \Psi_{1,i} \Delta y_{1,t-i} + \sum_{i=1}^{L} \Psi_{2,i} \Delta y_{2,t-i} + \varepsilon_{1,t}$$
+$$\Delta y_{2,t} = \alpha_{2} + \gamma_{2}(y_{1,t-1}-\beta_{2}y_{2,t-1})_{t-1} + \sum_{i=1}^{K} \eta_{1,i} \Delta y_{1,t-i} + \sum_{i=1}^{L} \eta_{2,i} \Delta y_{2,t-i} + \varepsilon_{2,t}$$
+
+#### i. Cointégration à la Engle et Granger : Procédure en deux étapes
+
+Estimez la relation à long terme, c’est-à-dire la régression en niveaux et les résidus de test pour $I(0)$. On prend ensuite les résidus de la première étape et on les utilisent dans la régression ECM. 
+
+
+```{r}
+library(dynlm)
+
+reg0 = lm(y1 ~ y2)
+ect = resid(reg0)[1:249]
+dy1 = diff(y1)
+dy2 = diff(y2)
+ecmdat = cbind(dy1, dy2, ect)
+ecm = dynlm(dy1 ~ L(ect, 1) + L(dy1, 1) + L(dy2, 1) , data = ecmdat)
+coeftest(ecm)
+```
+
+Le tableau ci-haut présente les résultats de ECM selon la méthode proposée par Engle et Granger, voir Engle et Yoo (1987).
+
+#### ii. Cointégration à la Phillips et Ouliaris
+
+Tests basés sur les résidus: statistique de test et de trace du rapport de variance. Le test basé sur la régression est représenté comme :
+
+$$z_t = \Gamma z_{t-1} + \xi_t$$
+
+Où $z_t$ est partitionné comme $z_t = (y_t, x_{t}')$ avec une dimmension de $x_{t}$ qui est égale à $[m=n+1]$. 
+
+L'hypothèse nulle est la non cointégration. Voir Phillips et Ouliaris (1990).
+
+
+```{r}
+z = cbind(y1, y2)
+test.po.pu = ca.po(z, demean = "none", type = "Pu")
+test.po.pz = ca.po(z, demean = "none", type = "Pz")
+#summary(test.po.pu)
+#summary(test.po.pz)
+```
+
+
+Pour voir les résutats des tests statistiques, il faut tout simplement écrire *summary(test.po.pu)* et *summary(test.po.pz)*. 
+
+
+## 4 Vecteur à correction d'erreur, VECM 
+
+Nous montrons ici comment on peut transformer un modèle du type *vecteur autorégressif, VAR* à un modèle VECM. 
+
+Soit le modèle VAR ci-après :
+
+$$y_{} = A_{1}y_{t-1} +...+A_{p}y_{t-p} + CD_{t} + \varepsilon_{t}$$
+
+La transformation pour le modèle VECM est donnée sous la forme :
+
+$$\Delta y_{t} = \Gamma_{1} \Delta y_{t-1} +...+ \Gamma_{K-1} \Delta y_{t-p+1} + \Pi y_{t-1} + CD_{t} + \varepsilon_t$$
+$$\Gamma_{i} = -(A_{i+1} +...+A_{p}), i= 1,2,...,p-1$$
+$$\Pi = -(I-A_{1} -...-A_{p})$$
+
+À long-terme le VECM prend la forme :
+
+$$\Delta y_{t} = \Gamma_{1} \Delta y_{t-1} +...+ \Gamma_{p-1} \Delta y_{t-p+1} + \Pi y_{t-p} + CD_{t} + \varepsilon_{t}$$
+$$\Gamma_{i} = -(I-A_{1} -...-A_{i}), i = 1,2,...,p-1$$
+$$\Pi = -(I-A_{1} -...-A_{p})$$
+
+ci-bas, l'exemple d'un VECM
+
+```{r}
+set.seed(12345)
+e1 = rnorm(250, 0, 0.5)
+e2 = rnorm(250, 0, 0.5)
+e3 = rnorm(250, 0, 0.5)
+u1.ar1 = arima.sim(model = list(ar = 0.75), innov = e1, n = 250)
+u2.ar1 <- arima.sim(model = list(ar = 0.3), innov = e2, n = 250)
+y3 = cumsum(e3)
+y1 = 0.8 * y3 + u1.ar1
+y2 = -0.3 * y3 + u2.ar1
+ymax <- max(c(y1, y2, y3))
+ymin <- min(c(y1, y2, y3))
+
+plot(y1, ylab = "", xlab = "", main = "simulation VECM", ylim = c(ymin, ymax))
+lines(y2, col = "red")
+lines(y3, col = "blue")
+legend(1, -1, c("y1", "y2", "y3"), pch = c(1,2,3), lty = c(1,2,3))
+```
+
+
+L'inférence statistique est Basée sur les corrélations canoniques entre $y_{t}$ et $\Delta y_{t}$ avec différences décalées. Ces corrélations se présentent comme :
+
+$$H_{00} = \frac{1}{T} \sum_{t=1}^{T} \hat{\mu}_{t} \hat{\mu}_{t}', H_{01}=H_{10} = \sum_{t=1}^{T} \hat{\mu}_{t} \hat{v}_{t}', H_{11} = \frac{1}{T} \sum_{t=1}^{T} \hat{v}_{t} \hat{v}_{t}'$$
+
+
+Et les valeurs propres sont données comme étant : $|\lambda H_{11} - H_{10}H_{00}H_{01}|=0$.
+
+
+```{r}
+y.daframe = data.frame(y1, y2, y3)
+vecm1 = ca.jo(y.daframe, type = "eigen", spec = "transitory")
+vecm2 = ca.jo(y.daframe, type = "trace", spec = "transitory")
+vecm.r2 = cajorls(vecm1, r = 2)
+
+print(vecm.r2)
+summary(vecm1)
+summary(vecm2)
+```
+
+Les tableaux ci-dessus nous donnent toutes les statistiques des tests pour la prise de décision concernant le modèle à correction d'erreur cointégré. 
+
+
+### 1 prédiction
+
+Conversion de VECM restreint en VAR de niveau. La vérification des prévisions, de l'IRF, du FEVD et du diagnostic s'applique également aux modèles $VAR(p)$ fixes.
+
+
+```{r}
+vecm.level = vec2var(vecm1, r = 2)
+vecm.prediction = predict(vecm.level, n.ahead = 10)
+plot(vecm.prediction)
+```
+
+Ci-haut le grphiques de prévision pour les variables y1, y2 et y3. 
+
+
+```{r}
+fanchart(vecm.prediction)
+```
+
+### 2 Réponse impulsionnelle, IRF et FEVD
+```{r}
+vecm.irf = irf(vecm.level, impulse = "y3", response ="y1", boot = FALSE)
+plot(vecm.irf)
+```
+
+La réponse de la variable y1 face un choc de la variable y3. 
+
+```{r}
+vecm.fevd = fevd(vecm.level)
+plot(vecm.fevd)
+```
+
+### 3 Statistiques de tests
+
+
+```{r}
+vecm.norm = normality.test(vecm.level)
+print(vecm.norm)
+```
+
+Les tests de normalité des résidus nous montre que les erreurs sont normalement distribuées. 
+
+
+```{r}
+vecm.arch = arch.test(vecm.level)
+print(vecm.arch)
+```
+
+Le test ARCH d'hétéroscédasticité nous indique que l'hypothèse nulle d'homoscédasticité ne peut pas être réjetée. Nous sommes pas en présence d'hétéroscédasticité des résidus. 
+
+
+
+```{r}
+vecm.serial = serial.test(vecm.level)
+print(vecm.serial)
+```
+
+Le test de Portmanteau nous indique que le modèle estimé sous VECM n'a pas de correlation de série. On peut voir aussi ce comportement sur un graphique pour nos trois variables. 
+
+```{r}
+plot(vecm.serial)
+```
+
+Nous pouvons toute fois faire une analyse comparative des deux économies où, nous testions de tendance linéaire. Par exemple, testez si la tendance linéaire dans VAR est existante. Cela correspond à l'inclusion d'une constante dans le terme de correction d'erreur. 
+
+
+
+
+```{r}
+data(denmark)
+sjd = as.matrix(denmark[, c("LRM", "LRY", "IBO", "IDE")])
+sjd.vecm = ca.jo(sjd, ecdet = "const", type = "eigen", K = 2, spec = "longrun", season = 4)
+lttest.1 = lttest(sjd.vecm, r = 1)
+```
+
+Le test statistique pour le Danmark nous dit qu'il n'a donc pas une tendance linéaire dans le modèle VECM estimé. Pouvons-nous aussi pour la Finland. 
+
+
+```{r}
+data(finland)
+sjf = as.matrix(finland)
+sjf.vecm = ca.jo(sjf, ecdet = "none", type = "eigen", K = 2, spec = "longrun", season = 4)
+lttest.2 = lttest(sjf.vecm, r=3)
+```
+
+
+Il est aussi conseillé de faire le test *d'exogénéité* de la série. Le test de l’exogenité, c’est-à-dire que certaines variables n’entrent pas dans la ou les relations de cointégration. Dans ce cas, on test le rapport de vraisemblance pour l'hypothèse: $H_{4} : \alpha = A\Psi$ avec $r(K-m)$ degrés de liberté. 
+
+
+```{r}
+data(UKpppuip)
+attach(UKpppuip)
+head(UKpppuip)
+```
+
+```{r}
+dat1 = cbind(p1, p2, e12, i1, i2)
+dat2 = cbind(doilp0, doilp1)
+H1 = ca.jo(dat1, K = 2, season = 4, dumvar = dat2)
+A1 = matrix(c(1,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1), nrow = 5, ncol = 4)
+A2 = matrix(c(1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0), nrow = 5, ncol = 4)
+H4.1 = summary(alrtest(z = H1, A = A1, r = 2))
+H4.2 = summary(alrtest(z = H1, A = A2, r = 2))
+print(H4.1)
+```
+
+Pour detecter l'exogénéité, on regarde la valeur du test statistique qui est de 0.66 et la p-value de 0.72. 
+
+
+```{r}
+print(H4.2)
+```
+
+
+Les tests ne dépendent pas de la normalisation de $\beta$. Les tests sont des tests de vraisemblance, similaires pour les restrictions de test sur $\alpha$. Cela exige de réaliser les test des restrictions pour toutes les relations de cointégration. $r_1$ les relations de cointégration sont supposées être connues et $r_2$ les relations cointégrées doivent être estimées, l'ensemble on a $r = r_1 + r_2$. $r_1$ les relations de cointégration sont estimées avec restrictions et $r_2$ les relations de cointégration sont estimées sans contraintes, $r = r_1 + r_2$.
+
+
+```{r}
+H.3.1 = matrix(c(1,-1,-1,0,0,0,0,0,1,0,0,0,0,0,1), c(5,3))
+H.3.2 = matrix(c(1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,-1), c(5,4))
+H31 = blrtest(z = H1, H = H.3.1, r = 2)
+summary(H31)
+H32 = blrtest(z = H1, H = H.3.2, r = 2)
+summary(H32)
+```
+
+Dans H31: toutes les relations de cointégration ne peuvent être rejetées. Dans H32 : identifiant dans toutes les relations de cointégration doivent être rejetées. 
+
+## 5 Modèle SVEC OU SVECM
+
+Le modèle SVECM est un modèle B avec $\mu_{t} = B \varepsilon_t$ et $\sum_{\mu} = BB'$. Pour l'identification unique de B, au moins les restrictions $\frac{1}{2} K(K-1)$ sont obligatoires. Ainsi, le théorème de Granger se présente comme suit :
+
+$$y_{t} = \Xi \sum_{i=1}^{t} \mu_{i} + \sum_{j=0}^{\infty} \Xi_{j} \mu_{t-j} + y_{0}$$
+
+
+```{r}
+data(Canada)
+vec.canada = ca.jo(Canada, K = 2, spec = "transitory", season = 4)
+LR = matrix(0, nrow = 4, ncol = 4)
+LR[, c(1, 2)] = NA
+SR = matrix(NA, nrow = 4, ncol = 4)
+SR[3, 4] = 0
+SR[4, 2] = 0
+svecm.canada = SVEC(vec.canada, r = 2, LR = LR, SR = SR, max.iter = 200, lrtest = TRUE, 
+             boot = FALSE)
+svecm.irf = irf(svecm.canada, impulse = "e", response = "rw", boot = FALSE, cumulative = FALSE, 
+                runs = 100)
+plot(svecm.irf)
+svecm.fevd = fevd(svecm.canada)
+plot(svecm.fevd)
+```
+
+
+
+# Modélisation de la volatilité
+
+## 1 Modèles ARCH et GARCH
+
+Les modèles hétéroscedastiques conditionnels autocorrélés (ARCH) a été introduite dans la littérature par Engle (1982). Ce type de modèle a depuis été modifié et étendu de plusieurs manières. Les articles d'Engle et Bollerslev (1986), Bollerslev et al. (1992) et Bera et Higgins (1993) donnent un aperçu des extensions de modèle au cours de la décennie suivant le document original. Aujourd'hui, les modèles ARCH ne sont pas seulement bien établis dans la littérature universitaire, ils sont également largement appliqués dans le domaine de la modélisation des risques. Dans cette partie, le terme *ARCH* est utilisé à la fois pour le modèle ARCH spécifique et pour ses extensions et modifications. Mais soulignons qu'à même que, le point de départ des modèles ARCH est une équation d’attente qui ne s'écarte que de la régression linéaire classique en ce qui concerne l'hypothèse d'erreurs indépendantes et identiquement normalement distribuées:
+
+$$y_{t} = x_{t}' \beta + \varepsilon_{t}$$
+$$\varepsilon_{t}|\Psi_{t-1} \sim N(0,h_{t})$$
+
+La deuxième composante des modèles ARCH est l’équation de la variance. Dans un modèle ARCH d'ordre q, la variance conditionnelle est expliquée par l'historique des erreurs carrées jusqu'au décalage temporel q:
+
+$$h_{t} = \alpha_{0} + \alpha_{1} \varepsilon_{t-1}^2 +....+\alpha_{q} \varepsilon_{t-q}^2$$
+
+Où $\alpha_0 > 0, \alpha_i \geqslant 0, i=1,2,...,q$. Ces restrictions de paramètres garantissent une variance conditionnelle positive. L'inclusion des informations disponibles jusqu'au temps $t-1$ est évidente à partir de:
+
+$$\varepsilon_{t-i} = y_{t-1}-x_{t-i}' \beta , i=1,2,...,q$$
+
+On peut déjà en déduire pourquoi cette classe de modèles peut capturer le fait stylisé (stylised facts) du clustering de volatilité: la variance conditionnelle est expliquée par les erreurs des périodes passées. Si ces erreurs sont importantes en valeur absolue, il en résulte une valeur élevée pour la variance conditionnelle, et inversement.
+
+
+Après avoir discuté du modèle ARCH de base, l’accent est maintenant mis sur sa modification et ses extensions. Bollerslev (1986) a introduit le modèle *GARCH(p,q)* dans la littérature. Cela diffère du modèle ARCH en ce qui concerne l'inclusion de variables endogènes retardées dans l'équation de la variance. En d'autres termes, la variance conditionnelle dépend non seulement des erreurs carrées passées, mais également des variances conditionnelles retardées:
+
+$$h_{t} = \alpha_{0} + \alpha_{1} \varepsilon_{t-1}^2 +...+ \alpha_{q} \varepsilon_{t-q}^2 + \beta_{1} h_{t-1} +...+ \beta_{p} h_{t-p}$$
+
+avec comme restrictions $\alpha_0>0, \alpha_i \geqslant 0, i = 1,2,...,q$ et $\beta_i \geqslant 0, j=1,2,...,p$ de sorte que le processus de variance conditionnelle soit strictement positif. 
+
+Nelson (1991) a aussi élargi le modèle ARCH pour permettre de prendre en compte cet effet. Il a proposé la classe de modèles de GARCH (EGARCH) exponentiels pour capturer des asymétries des certaines informations. La modélisation des effets asymétriques peut être justifiée d’un point de vue économique par des effets de levier, en particulier lorsqu’on étudie les rendements des actions. Pour ces derniers, une relation négative entre la volatilité et les rendements passés est postulée (voir Black 1976). L'équation de variance prend maintenant la forme :
+
+
+$$log(h_{t}) = \alpha_{0} + \sum_{i=1}^{q} \alpha_{i} g(\eta_{t-i}) + \sum_{j=1}^{p} \beta_{j} log(h_{t-j})$$
+
+
+où la spécification alternative des modèles ARCH introduite par Bollerslev (1986) est utilisée et où la fonction $g(\eta_{t})$ est définie comme suit:
+
+
+$$g(\eta_{t}) = \theta \eta_{t} + \gamma[|\eta_{t}| - E(|\eta_{t}|)]$$
+
+Dans R, le package *bayesGARCH* implémente l'estimation bayésienne des modèles *GARCH(1,1)* avec les innovations de Student (voir par exemple, Ardia 2008, 2009, 2015; Ardia et Hoogerheide 2010). Nous reprenons ici l'exemple de Stock et Watson. Cet ensemble de données est un complément à la monographie de Stock et Watson (2007) et figure dans le package AER (voir Kleiber et Zeileis 2008). Il s'agit donc d'un *back-test* du déficit attendu à un niveau de confiance de 99% pour les rendements quotidiens de la Bourse de New York (NYSE).
+
+
+
+
+```{r}
+knitr::opts_chunk$set(echo = FALSE)
+library(AER)
+library(timeSeries)
+library(fGarch)
+data("NYSESW")
+head(NYSESW)
+```
+
+
+
+```{r}
+#NYSELOSS = timeSeries(-1.0 * diff(log(NYSESW[,1]))*100, charvec = time(NYSESW[,1]))
+
+#ESgarch = function(y, p = 0.99) {
+ # gfit = garchFit(formula = ~garch(1,1), data = y, cond.dist = "std",
+                 # trace = FALSE)
+ # sigma = predict(gfit, n.ahead = 1)[3]
+ # df = coef(gfit)["shape"]
+ # ES = sigma * (dt(qt(p, df), df)/(1-p))*((df + (qt(p,df))^2)/(df-1))
+ # return(ES)
+#}
+
+#from = time(diff(NYSELOSS))[-c((nrow(NYSELOSS)):
+                           #nrow(NYSELOSS))]
+#to = time(NYSELOSS)[-c(1:1000)]
+#NYSEES = fapply(NYSELOSS, from = NULL, to = to, FUN = ESgarch)
+#NYSEESL1 = lag(NYSEES, k = 1)
+#res = na.omit(cbind(NYSELOSS, NYSEESL1))
+#colnames(res) = c("NYSELOSS", "ES99")
+#plot(res[,2], col = "red", ylim = range(res), main = "NYSE: tGARCH(1,1) ES 99%",
+ #    ylab = "pourcentage", xlab = "")
+#points(res[,1], type = "p", cex = 0.2, pch = 19, col = "blue")
+#legend("topleft", legend = c("Loss", "ES"), col = c("blue", "red"),
+ #      lty = c(NA, 1), pch = c(19, NA))
+```
+
+
+
+
+

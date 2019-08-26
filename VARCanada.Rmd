@@ -1,0 +1,492 @@
+---
+title: "VAR, SVAR and VECM Using the vars package"
+author: "Henri Makika"
+date: "May 22, 2019"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE,
+                      fig.width = 12, fig.height = 8)
+```
+
+## Contents
+
+### 1. VAR: Vector autoregressive models
+
+### 2. SVAR: Structural vector autoregressive models
+
+### 3. VECM to VAR
+
+
+## Introduction
+
+Depuis la critique de Sims (1980) au début des années quatre-vingt du siècle dernier, l'analyse VAR est devenue un instrument standard en économétrie pour l'analyse de séries chronologiques à plusieurs variables. Les tests statistiques étant très utilisés pour déterminer les interdépendances et les relations dynamiques entre variables, il est rapidement devenu évident qu’enrichir cette méthodologie en incorporant des informations a priori non statistiques a conduit à l’évolution des modèles SVAR qui tentent de contourner ces lacunes. Sims a mis en péril le paradigme des multiples modèles d’équations structurelles proposés par la *Cowles Foundation* dans les années 1930 et 1950 du siècle dernier. Granger (1981) et Engle & Granger (1987) ont doté les économétriciens d’un puissant outil de modélisation et de tester les relations économiques, à savoir le concept d'intégration et de cointégration. De nos jours, ces traces de recherche sont unifiées sous la forme de modèles de correction d’erreur vectorielle et de correction d’erreur vectorielle de structure. Bien que ces derniers sujets soient laissés de côté dans cette vignette, le lecteur intéressé est renvoyé aux monographies de Lütkepohl (2006), Hendry (1995), Johansen (1995), Hamilton (1994), Banerjee, Dolado, Galbraith & Hendry (1993) et Pfaff (2006) pour une exposition sur les tests de racine unitaire et l'analyse de co-intégration en utilisant le langage R.
+
+À la connaissance de l'auteur, seules les fonctions actuelles sont disponibles dans la distribution de base de R et dans les *packages CRAN dse* (package, voir Gilbert 1993, 1995, 2000) et *fMultivar* (Würtz 2006) pour estimer les modèles de séries chronologiques ARIMA et VARIMA. . Bien que le paquetage CRAN MSBVAR (Brandt 2006) fournisse des méthodes d’estimation des modèles BVR (Bayesian Autoregression Vector Frequentist), les méthodes et fonctions fournies dans les paquetages essayent de combler une lacune dans le paysage des méthodes économétriques de R en fournissant des outils «standard» dans le contexte de l'analyse VAR et SVAR.
+
+
+# 1. VAR : Vector autoregressive models
+
+## Estimation
+
+Pour la description de données, voir Lütkepohl et al. (2004).
+
+
+```{r}
+library(vars)
+data("Canada")
+head(Canada)
+
+layout(matrix(1:4, nrow = 2, ncol = 2))
+
+plot.ts(Canada[,1], main = "Employment", ylab = "", xlab = "")
+plot.ts(Canada[,2], main = "Productivity", ylab = "", xlab = "")
+plot.ts(Canada[,3], main = "Real Wage", ylab = "", xlab = "")
+plot.ts(Canada[,4], main = "Unemployment Rate", ylab = "", xlab = "")
+```
+
+## Explication
+
+La variable *e* est utilisée pour l'emploi; *prod* est une mesure de la productivité du travail; *rw* assigne le salaire réel et finalement *U* est le taux de chômage. La fonction d'estimation d'un VAR sur R est *VAR()*. Il se compose de trois arguments: l'objet de matrice de données *y* (ou un objet pouvant être forcé dans une matrice), l'ordre de décalage entier *p* et le type de régresseurs déterministes à inclure dans le *VAR(p)*. Un ordre de retard optimal peut être déterminé en fonction d'un critère d'information ou de l'erreur de prédiction finale d'un *VAR(p)* avec la fonction *VARselect()*.
+
+```{r}
+args(VAR)
+```
+
+```{r}
+args(VARselect)
+```
+
+```{r}
+VARselect(Canada, lag.max = 5, type = "const")
+```
+
+*VARselect()* permet à l'utilisateur de déterminer une longueur de décalage optimale en fonction d'un critère d'information ou de l'erreur de prédiction finale d'un processus *VAR(p)* empirique. Chacune de ces mesures est définie dans le fichier d’aide de la fonction. La fonction renvoie un objet de liste avec l'ordre de décalage optimal en fonction de chacun des critères, ainsi qu'une matrice contenant les valeurs de tous les décalages jusqu'à lag.max. Selon les critères plus conservateurs de *SC(n)* et *HQ(n)*, l'ordre de latence optimal empirique est de 2. Veuillez noter que le calcul de ces critères est basé sur la même taille d'échantillon et que, par conséquent, les critères pourraient prendre légèrement différentes les valeurs permettant d'estimer un VAR pour l'ordre choisi.
+
+Dans une étape suivante, le VAR (2) est estimé avec la fonction *VAR()* et, en tant que régresseurs déterministes, une constante est incluse.
+
+```{r}
+var2c <- VAR(Canada, p = 2, type = "const")
+names(var2c)
+```
+
+Avec la fonction *summary*, on a tout les détails de notre estimation et la fonction *plot* pour le graphique du modèle VAR(2) estimé.
+
+```{r}
+summary(var2c)
+```
+
+Comme on a prit le *lag* 2, c'est à dire VAR(2), on remarque que toute les variables leurs coefficients ne sont pas statistiquement significatifs.
+
+```{r}
+par(mar = rep(2, 4))
+plot(var2c)
+```
+
+Avant de procéder à l’estimation des VAR restreints, examinons d’abord la méthode de tracé pour les objets avec attribut de classe varest et la fonction roots () pour vérifier la stabilité du VAR, brièvement mentionnés à la fin de la section précédente. Pour chaque équation dans un VAR, un graphique constitué d'un diagramme d'ajustement, d'un graphique de résidus, de la fonction d'autocorrélation et d'une autocorrélation partielle des résidus est présenté.
+
+```{r}
+roots(var2c)
+```
+
+Bien que la première valeur propre soit assez proche de l'unité, pour simplifier, nous supposons un processus VAR (2) stable avec une constante comme régresseur déterministe.
+
+## Restricted VARs
+
+```{r}
+args(restrict)
+```
+
+```{r}
+var2c.ser <- restrict(var2c, method = "ser", thresh = 2)
+var2c.ser$restrictions
+```
+
+```{r}
+Acoef(var2c.ser)
+```
+```{r}
+plot(var2c.ser)
+```
+
+```{r}
+res <- matrix(rep(1, 36), nrow = 4, ncol = 9)
+res[1, 3] <- 0
+res[1, 4] <- 0
+
+var2c.man <- restrict(var2c, method = "manual", resmat = res)
+var2c.man$restrictions
+```
+```{r}
+Acoef(var2c.man)
+```
+```{r}
+plot(var2c.man)
+```
+
+## Diagnostic testing
+```{r}
+args(arch.test)
+```
+
+
+```{r}
+var2c.arch.test <- arch.test(var2c)
+names(var2c.arch.test)
+```
+
+```{r}
+var2c.arch.test
+```
+
+
+Les tests de normalité de Jarque-Bera pour les séries univariée et multivariée sont mis en œuvre et appliqués aux résidus d'un VAR
+tests séparés pour l'asymétrie multivariée et le kurtosis (voir Bera & Jarque [1980], [1981] et Jarque & Bera [1987] et Lütkepohl [2006]). Les versions univoques du test de Jarque-Bera sont appliquées aux résidus de chaque équation. Une version multivariée de ce test peut être calculée en utilisant les résidus normalisés par une décomposition de Choleski de la matrice de variance-covariance pour les résidus centrés. Veuillez noter que dans ce cas, le résultat du test dépend de l'ordre des variables.
+
+```{r}
+var2c.norm <- normality.test(var2c, multivariate.only = TRUE)
+names(var2c.norm)
+```
+
+```{r}
+var2c.norm
+```
+
+```{r}
+plot(var2c.norm)
+```
+
+```{r}
+var2c.pt.asy <- serial.test(var2c, lags.pt = 16, 
+                            type = "PT.asymptotic")
+var2c.pt.asy
+```
+```{r}
+var2c.pt.adj <- serial.test(var2c, lags.pt = 16, 
+                       type = "PT.adjusted")
+var2c.pt.adj
+```
+
+```{r}
+plot(var2c.pt.asy)
+```
+
+
+```{r}
+plot(var2c.pt.adj)
+```
+
+```{r}
+var2c.BG <- serial.test(var2c, lags.pt = 16, type = "BG")
+var2c.BG
+```
+
+```{r}
+var2c.ES <- serial.test(var2c, lags.pt = 16, type = "ES")
+var2c.ES
+```
+
+
+```{r}
+args(stability)
+```
+
+
+```{r}
+var2c.stab <- stability(var2c, type = "OLS-CUSUM")
+names(var2c.stab)
+```
+
+
+```{r}
+var2c.stab
+```
+
+
+```{r}
+plot(var2c.stab)
+```
+
+
+## Causality Analysis
+
+Les chercheurs s'intéressent souvent à la détection des liens de causalité entre les variables. Le plus commun est le test de *Granger-Causality* (Granger, 1969). Incidemment, ce test ne convient pas pour vérifier les relations de causalité au sens strict, car la possibilité d’une erreur *post hoc ergo propter hoc* ne peut être exclue. Cela est vrai pour tout prétendu *test de causalité* en économétrie. Il est donc courant de dire que la variable *x* ne cause pas la variable cause au sens de granger *y* si la variable *x* permet de prédire la variable *y*. Outre ce test, dans la fonction *causality()*, un test de causalité instantanée de type *Wald* est également implémenté. Il est caractérisé par des tests de corrélation non nulle entre les processus d'erreur des variables de cause à effet.
+
+```{r}
+args(causality)
+```
+
+La fonction *causality()* a deux arguments importants. Le premier argument, *x*, est un objet de la classe *varest* et le second, *cause*, est un vecteur de caractères des noms de variable, supposés être causaux pour les variables restantes d'un processus *VAR(p)*.
+
+La fonction *causality()* est maintenant utilisée pour rechercher si le salaire réel (rw) et la productivité (prod) sont des causes de l'emploi (e) et du chômage (U).
+
+
+
+```{r}
+causality(var2c, cause = c("rw", "prod"))
+```
+
+L'hypothèse nulle d'absence de causalité de Granger du salaire réel et de la productivité du travail à l'emploi et au chômage doit être rejetée; alors que l'hypothèse nulle d'une causalité non instantanée ne peut être rejetée. Ce résultat de test est économiquement plausible, compte tenu des frictions observées sur les marchés du travail.
+
+
+## Prévision (Forecasting)
+
+Une méthode de prédiction pour les objets avec l'attribut de classe *varest* est disponible. Les prévisions $n.ahead$ sont calculées de manière récursive pour le VAR estimé, en commençant par $h = 1, 2,..., n.ahead$ : 
+
+$$Y_{T+1|T} = A_{1}Y_{T} +...A_{p}Y_{T+1-p} + CD_{T+1}$$
+
+```{r}
+var.f10 = predict(var2c, n.ahead = 10, ci = 0.95)
+names(var.f10)
+```
+
+Outre les arguments de la fonction pour l’objet *varest* et les étapes de prévision *n.ahead*, une valeur pour l’intervalle de confiance de prévision peut également être fournie. Sa valeur par défaut est *0.95*.
+
+```{r}
+class(var.f10)
+```
+
+```{r}
+fanchart(var.f10)
+```
+
+```{r}
+plot(var.f10)
+```
+
+
+```{r}
+args(fanchart)
+```
+
+
+## Impulse response analysis (Analyse de la réponse impulsionnelle)
+
+L'analyse de réponse impulsionnelle est basée sur la représentation de moyenne mobile d'un processus $VAR(p)$. Il est utilisé pour étudier les interactions dynamiques entre les variables endogènes.
+
+
+```{r}
+args(irf)
+```
+
+```{r}
+var.2c.alt <- VAR(Canada, p = 2, type = "const")
+irf.rw.eU <- irf(var.2c.alt, impulse = "rw", response = c("e", "U"), boot = TRUE)
+names(irf.rw.eU)
+```
+
+```{r}
+plot(irf.rw.eU)
+```
+
+
+Réponses impulsionnelles orthogonales du salaire réel à l'emploi et au chômage (avec un interval de confiance à 95%, avec 100 répétitions). 
+
+
+## Décomposition de la variance d'erreur prévue
+
+La décomposition de la variance d'erreur de prévision (dorénavant: FEVD) est basée sur les matrices de coefficient de réponse impulsionnelle orthogonalisées.
+
+
+```{r}
+args(fevd)
+```
+
+
+```{r}
+var2c.fevd <- fevd(var2c, n.ahead = 5)
+class(var2c.fevd)
+```
+
+```{r}
+names(var2c.fevd)
+```
+
+```{r}
+plot(var2c.fevd)
+```
+
+
+# 2. SVAR: Structural vector autoregressive models
+
+## Estimation
+
+Nous aurons besoin ici de la fonction $SVAR$. 
+
+
+```{r}
+args(SVAR)
+```
+
+
+
+```{r}
+amor <- diag(4)
+diag(amor) = NA
+amor[1, 2] = NA
+amor[1, 3] = NA
+amor[3, 2] = NA
+amor[4, 1] = NA
+amor
+```
+
+Les paramètres sont estimés en minimisant le négatif de la fonction de log-vraisemblance concentrée :
+
+$$lnL_{c} = -\frac{KT}{2}ln(2\pi) + \frac{T}{2}ln|A|^2 - \frac{T}{2}ln|B|^2 - \frac{T}{2}tr(A'B^{'-1}B^{-1}A\sum_{\mu}^{~})$$
+
+Sur R on utilise l'argument $optim$ :
+
+
+```{r}
+args(optim)
+```
+
+
+```{r}
+svar2c.A = SVAR(var2c, estmethod = "scoring", Amat = amor, Bmat = NULL,
+                hessian = TRUE, method = "BFGS")
+svar2c.A
+```
+
+
+On peut aussi estimer par la méthode *direct* :
+
+
+```{r}
+svar2c.A2 = SVAR(var2c, estmethod = "direct", Amat = amor, Bmat = NULL,
+                hessian = TRUE, method = "BFGS")
+svar2c.A2
+```
+
+
+```{r}
+class(svar2c.A)
+```
+
+
+```{r}
+names(svar2c.A)
+```
+
+
+Le modèle de Blanchard & Quah est implémenté sur R sous la fonction $BQ()$. Il a un argument $x$, qui est un objet avec l'attribut de classe $varest$. La fonction renvoie un objet de liste avec l'attribut de classe $svarest$. Vous trouverez ci-dessous un exemple trivial d’application d’un SVAR de type Blanchard & Quah (1989) à la *var2c*:
+
+
+```{r}
+BQ(var2c)
+```
+
+La matrice d'impact simultanée est stockée en tant qu'élément de liste B et la matrice d'impact à long terme en tant qu'élément de liste LRIM dans l'objet renvoyé.
+
+
+## Impulse response analysis
+
+
+```{r}
+svar2cA.ira <- irf(svar2c.A, impulse = "rw", response = c("e", "U"), boot = FALSE)
+svar2cA.ira
+```
+
+
+
+```{r}
+plot(svar2cA.ira)
+```
+
+
+
+## Forecast error variance decomposition (Décomposition de la variance d'erreur prévue)
+
+
+```{r}
+svar2cA.fevd = fevd(svar2c.A, n.ahead = 8)
+svar2cA.fevd
+```
+
+```{r}
+plot(svar2cA.fevd)
+```
+
+
+# 3. VECM to VAR (VECM à VAR)
+
+
+```{r}
+library(urca)
+library(timeSeries)
+
+data("finland")
+
+hen = finland
+
+```
+
+
+
+```{r}
+args(ca.jo)
+```
+
+
+
+```{r}
+hen.vecm = ca.jo(hen, type = "eigen", ecdet = "const", K = 2, spec = "longrun",
+                 season = 4)
+summary(hen.vecm)
+```
+
+
+
+
+```{r}
+args(vec2var)
+```
+
+
+
+```{r}
+hen.var = vec2var(hen.vecm, r = 2)
+print(hen.var)
+```
+
+```{r}
+plot(hen.vecm)
+```
+
+
+```{r}
+vecm = ca.jo(Canada[, c("prod", "e", "U", "rw")], type = "trace", ecdet = "trend",
+             K = 3, spec = "transitory")
+SR = matrix(NA, nrow = 4, ncol = 4)
+SR[4, 2] = 0
+SR
+LR = matrix(NA, nrow = 4, ncol = 4)
+LR[1, 2:4] = 0
+LR[2:4, 4] = 0
+LR
+
+svec = SVEC(vecm, LR = LR, SR = SR, r = 1, lrtest = FALSE, boot = TRUE, runs = 100)
+svec
+
+svec.irf = irf(svec, response = "U", n.ahead = 48, boot = TRUE)
+svec.irf
+```
+
+
+
+```{r}
+plot(svec.irf)
+```
+
+
+
+
+
+
+
+

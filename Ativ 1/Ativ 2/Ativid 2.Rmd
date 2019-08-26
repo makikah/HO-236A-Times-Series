@@ -1,0 +1,517 @@
+---
+title: |
+  |
+  | University of Campinas - UNICAMP  
+  |
+  |
+  |
+  | **Time Series Analysis**
+  |
+  | Gross Domestic Product-French (GDP-current US$)
+  |
+  |
+  | Supervisor: Rosangela Balini
+  |
+  |
+author: |
+  | ------------------------------------------------
+  | Henri Makika (211042)
+  | ------------------------------------------------
+
+
+date: "May 25, 2019"
+output: pdf_document
+---
+\begin{center}
+\includegraphics[width=50mm]{logo-unicamp-name-line-blk-red-0240.eps}
+\end{center}
+
+\newpage 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE,
+                      fig.width = 10, fig.height = 6)
+```
+
+# Introduction
+
+Dans ce travail, il est donc question d'estimer, en utilisant le modèle ARIMA, les données de PIB de la France exprimées en dollars américains. La serie de données commence de 1960 à 2017. Pour ainsi, nous utilisons la méthodologie de Box-Jenkins et réaliser la prévision pour cinq (5) années après, c'est à dire 2018, 2019, 2020, 2021, 2022. Quatre opérations nous est demandée de réaliser :
+
+1. Identification
+2. Estimation 
+3. Vérification et 
+4. Prévision
+
+Nous importons ici les packages nécessaires pour l'analyse de nos données :
+
+```{r pacotes, fig.width = 12, fig.height = 6}
+library(strucchange) # Pour le test de rupture structuralle
+library(forecast)    # Pour ajuster et faire la prévision du modèle ARIMA
+library(lmtest)      # Pour les tests d'hypothès de normalité
+library(FinTS)       # Pour tester l'hypothèse d'hétérocédasticité
+library(urca)        # Pour réaliser le test de racines unitaires (KPSS, ERS,...)
+library(tseries)     # Pour les tests de normalité
+library(TSA)         # Pour les tests de l'opérateur de retard (lags)
+library(readxl)      # Pour lire les données xlsx (données sur Excel)
+```
+
+## Lecture des données 
+
+
+
+```{r}
+pib_fr <- read_excel("~/Videos/Unicamp_IE 2019/HO:236A Times Series/Ativ 1/Ativ 2/France.xlsx")
+head(pib_fr)
+```
+
+## Analyse de données
+
+Il est donc ici question de transformer notre base de données en série temporelle, il s'agit donc d'exécuter la commande : 
+
+```{r}
+pib = ts(pib_fr[,2], start = c(1960, 1), frequency = 1)
+plot(pib, main = "Gross Domestic Product", xlab = "Année", ylab = "GDP-France")
+grid()
+
+```
+
+# 1. Identification du modèle
+
+Premièrement, nous aimerions savoir si la serie a une tendance ou pas, si elle est stationnaire ou non. Pour se faire, nous allons identifier par la méthode graphque. 
+
+```{r primeiro plot}
+lpib <- log(pib)
+
+par(mfrow = c(1, 2))
+plot(lpib, main = "Gross Domestic Product", xlab = "Année", ylab = "GDP-France")
+grid()
+acf(lpib, lag.max = 20, type = "correlation", xlab = "lags",
+    ylab = "FAC")
+```
+
+La *Gross Domestic Product* de la France n'est pas stationnaire et a une tendance temporelle. Tout au long du graphique de la serie, nous remarquons les chocs négatifs, cela peuvent-ils causer une *quebra estrutural*? Pour ainsi, nous vérifions en réalisant le test de Zivot et Andrews :  
+
+```{r}
+za.lpib <- ur.za(lpib, model = "trend")
+plot(za.lpib)
+```
+
+
+Le graphique de Zivot et Andrews ne nous montre pas une rupture structurelle, ces chocs négatifs ne peuvent qu'être des chocs aléatoires endogènes. 
+
+
+
+```{r}
+summary(za.lpib)
+```
+
+Le resultat du tableau nous montre qu'il y a une seule rupture struturelle (à la 19e pisition). Nous passons à présent au test de stationnarité de notre série. 
+
+Une des grandes questions dans l'étude de séries temporelles (chronologiques) est de savoir si celles-ci suivent un processus stationnaire. On entend par là le fait que la structure du processus sous-jacent supposé évolue ou non avec le temps. Si la structure reste la même, le processus est dit alors stationnaire.
+
+On a deux types de stationnarité : la stationnarité forte et la stationnarité faible. 
+
+1. Une stationnarité est dit forte si : soit un processus temporel à valeurs réelles et en temps discret $Z_1, Z_2,...,Z_t$. Il est dit stationnaire au sens fort si pour toute fonction $f$ mesurable :
+
+$$f(Z_1, Z_2,...,Z_t) et f(Z_{1+k}, Z_{2+k},...Z_{t+k})$$ ont la même loi.
+
+2. Soit un processus temporel à valeurs réelles et en temps discret $Z_1, Z_2,...,Z_t$.  Il est dit stationnaire au sens faible (ou «de second ordre», ou «en covariance») si :
+
+$$E[Z_i] = \mu,   \forall_i = 1...t$$ 
+$$Var[Z_i] = \delta^2 \neq \infty,  \forall_i = 1...t$$
+$$Cov[Z_i, Z_{i-t}] = f(x) = \rho_k, \forall_i = 1...t, \forall_k = 1...t$$
+
+La notion de stationnarité est importante dans la modélisation de séries temporelles, le problème de régression fallacieuse montrant qu'une régression linéaire avec des variables non-stationnaires n'est pas valide. Plus précisément, la distribution des paramètres de la régression ne suit plus une *loi de Student* mais un mouvement brownien. Dans le cas où les variables ne sont pas stationnaires, un concept très proche, celui de coïntégration, permet de déterminer le type de modèle à utiliser.
+
+La stationnarité joue également un rôle important dans la prédiction de séries temporelles, l'intervalle de prédiction étant différent selon que la série est stationnaire ou non. on a deux types de non-stationnarité :
+
+Lorsqu'une ou plus des conditions de stationnarité n'est pas remplie, la série est dite non-stationnaire. Ce terme recouvre cependant de nombreux types de non-stationnarité, dont deux sont ici exposés.
+
+1. *Stationnarité en tendance* : Une série est stationnaire en tendance si la série obtenue en « enlevant » la tendance temporelle de la série originale est stationnaire.
+
+Soit $X_t = bt + \varepsilon_t$, est dit stationnaire si : $Y_t = bt + \varepsilon_t - bt = \varepsilon_t$ où $\varepsilon_t$ est un *bruit blanc*.
+
+Soit $Y_t = X_t - bt$, est stationnaire si : $Y_t = bt + \varepsilon_t - bt = \varepsilon_t$ où $\varepsilon_t$ est une *bruit blanc*.
+
+2. *Stationnarité en différence* : soit $\Delta X_t = X_t - X_{t-1}$. Une série est stationnaire en différence si la série obtenue en différenciant les valeurs de la série originale est stationnaire.
+
+3. *Ordre d'intégration d'une série temporelle* : Une série temporelle est dite intégrée d'ordre d, que l'on note $I(d)$, si la série obtenue après $diff$ différenciations est stationnaire.
+
+## Tests de stationnarité 
+
+Si la fonction de densité n'est pas connue, ce qui est souvent le cas, il est utile de pouvoir déterminer par un test si la série est stationnaire ou non. Il en existe deux types, avec la stationnarité comme hypothèse nulle ou hypothèse alternative :
+
+L'hypothèse nulle est la stationnarité (test de stationnarité): ici on fait le test de KPSS (1992);
+L'hypothèse nulle est la non-stationnarité (test de racine unitaire): il y a plusieurs tests dont le test de DF ou ADF (1981), le test de Phillips-Perron (1988) et le test de Elliot, Rothenberg et Stock [DF-GLS ou ERS (1996)]. 
+
+Commençons par le test de stationnarité de KPSS : 
+
+### 1. Modèle avec tendance
+
+```{r}
+kpss.lpib = ur.kpss(lpib, type = "tau", lags = "short")
+plot(kpss.lpib)
+```
+
+Le test graphique étant informel ne va donc pas nous dire exactement si la série est stationnaire ou pas. S'il faut réjeter l'hypothèse nulle ou pas. Mais informellement il nous dit que la série n'est pas stationnaire. Donc on peut réjeter l'hypothèse nulle qui dit que la série est stationnaire.
+```{r}
+summary(kpss.lpib)
+```
+
+On rejet l'hypothèse nulle qui dit que la série est stationnaire. L'analyse statistique montre que la *Critical value for a significance*, au seuil de 5% est en dehors de l'intervalle de confiance, cette valeur du test est de 0.146. 
+
+### 2. Modèle avec constance
+
+```{r}
+kpss.pib1 <- ur.kpss(lpib, type = "mu", lags = "short")
+plot(kpss.pib1)
+```
+
+Le modèle avec constante nous renseigne la même chose. La série n'est pas stationnaire. On rejet donc l'hypothèse nulle de la stationnarité.
+
+
+```{r}
+summary(kpss.pib1)
+```
+
+Aussi, le test statistique du test de KPSS nous dit de réjeter l'hypothèse nulle. La série est non stationnaire (au seuil de 5% 0.463 < 1.4621). Nous passons à l'hypothèse nulle de la non-stationnarité. 
+
+## Test de racine unitaire
+
+### Le test de Dickey-Fuller (DF)
+
+*Modèle avec intercept et tendance*
+```{r}
+df.lpib <- ur.df(lpib, type = "trend", lags = 0)
+plot(df.lpib)
+```
+
+Le test de DF avec tendance et intercept nous indique de choisir le modèle AR(1), bien que cela soit difficile de le prédire. Bien que ça, la série n'est pas stationnaire.
+
+
+```{r}
+summary(df.lpib)
+```
+
+Les coefficients du modèle ne sont pas significatifs. Et notre série n'est pas non plus stationnaire. 
+
+*Modèle sans tendance avec intercept*
+
+
+```{r}
+df1.lpib <- ur.df(lpib, type = "drift", lags = 0)
+plot(df1.lpib)
+```
+
+Le modèle sans tendance mais avec intercept nous amènes à conclure de la même manière que ci-haut. On ne peut pas réjeter l'hypothèse nulle qui dit que la série n'est pas stationnaire. 
+
+```{r}
+summary(df1.lpib)
+```
+
+Bien que les coefficients du modèle sont statistiquement significatifs, la série n'est pas stationnaire. On ne rejet pas l'hypothèse nulle. Nous appliquons alors le test de ADF (Dickey-Fuller Augmented). 
+
+### Test de Dickey-Fuller Augmented
+
+*Modèle avec tendance et intercepet*
+
+```{r}
+adf.lpib <- ur.df(lpib, type = "trend", lags = 10, selectlags = "BIC")
+plot(adf.lpib)
+```
+
+Le graphique d'autocorrélation partielle nous indique le modèle MA(0) et l'autocorrélation nous indique AR(1). Il y a une différence entre les deux graphiques de l'autocorellation et autocorellation partielle pour le test de Dickey-Fuller et Dickey-Fuller Augmented.  
+
+```{r}
+summary(adf.lpib)
+```
+
+Notre série est toujours non stationnaire, puisque la valeur critique au seuil de 5% nous indique qu'elle est en dehors de l'intervalle de confiance. 
+
+*Modèle sans tendance et avec intercept*
+```{r}
+adf1.lpib <- ur.df(lpib, type = "drift", lags = 10, selectlags = "BIC")
+plot(adf1.lpib)
+```
+
+L'analyse graphique du modèle sans tendance mais avec intercept nous dit la même chose, il s'agit du modèle AR(1). Nous vérifions la stationnarité avec le résultat de test. 
+
+
+```{r}
+summary(adf1.lpib)
+```
+
+La valeur critique du test statistique au seuil de 5% (tau2 = 4.71) n'est pas à l'intérieur de l'intervalle de confiance, dans ce cas, on ne rejet pas l'hypothèse nulle. La série n'est pas stationnaire. La valeur du test statistique est de -2.74. 
+
+*Modèle sans intercept et sans tendance*
+
+```{r}
+adf2.lpib <- ur.df(lpib, type = "none", lags = 10, selectlags = "BIC")
+plot(adf2.lpib)
+```
+
+Les deux graphique d'autocorrélation et d'autocorrélation partielle nous indiquent le modèle AR(1).
+```{r}
+summary(adf2.lpib)
+```
+
+On ne rejète pas l'hypothèse nulle. Notre série n'est toujours pas stationnaire (-1.95 < 2.23), cette valeur est loin de l'intervalle de confiance.
+
+### Test de Phillips & Perron
+
+Le test de Phillips-Perron tout comme celui de ADF, indique que l'hypothèse nulle est l'absence de stationnarité.
+
+*Modèle avec tendance*
+
+```{r}
+pp.lpib = ur.pp(lpib, type = "Z-tau", model = "trend", lags = "short")
+plot(pp.lpib)
+```
+
+L'analyse graphique nous indique ARMA(1,1) pour le test de Phillips et Perron. 
+
+```{r}
+summary(pp.lpib)
+```
+
+Tout les coefficients du modèle ne sont pas statistiquement significatifs. Mais ici aussi comme les autres, on ne rejet pas l'hypothèse nulle, donc la série n'est pas stationnaire. 
+
+*Modèle avec intercept et sans tendance*
+
+```{r}
+pp1.lpib <- ur.pp(lpib, type = "Z-tau", model = "constant", lags = "short")
+plot(pp1.lpib)
+```
+
+Sans forcement une bonne précision, au vu des graphique de l'autocorrélation et autocorrélation partielle on prend comme modèle ARMA(1,1). 
+
+```{r}
+summary(pp1.lpib)
+```
+
+Le Z statistique est de 2.74, cette valeur à comparer à la valeur critique du test qui est de -2.91 est hors l'intervalle de confiance, on ne rejet donc pas l'hypothèse nulle. 
+
+### Test de DF-GLS (ERS-Elliot, Rotenberg e Stock, 1996)
+
+Ici aussi l'hypothèse nulle est que la série n'est pas stationnaire. 
+
+*Modèle avec tendance*
+
+```{r}
+ers.lpib <- ur.ers(lpib, type = "DF-GLS", model = "trend", lag.max = 4)
+plot(ers.lpib)
+```
+
+En appliquant le test de ERS, les deux graphique de corrélation et corrélation partielle nous indiquent que l'on choisi le medèle AR(1).
+
+```{r}
+summary(ers.lpib)
+```
+
+Lorsqu'on compare la valeur du test qui est de -1.12 aux valeurs critique du modèle DF-GLS qui est de -3.03 au seuil de 5%, cette dernière est en dehors du seuil de confiance. Ainsi, l'hypothèse nulle ne peut être réjetée. Il y a présence de racine unitaire. 
+
+*Modèle avec intercept*
+
+```{r}
+ers1.pi = ur.ers(lpib, type = "DF-GLS", model = "constant", lag.max = 4)
+plot(ers1.pi)
+```
+
+Le test graphique indique le modèle autoregréssif d'ordre 1, c'est à dire AR(1).
+```{r}
+summary(ers1.pi)
+```
+
+
+On ne rejet pas l'hypothèse nulle. Il y a présence d'une racine unitaire. Tous les tests de stationnarité et de racine unitaire ont été observés dans notre analyse mais le modèle indique l'absence de stationnarité. On retient tout simplement que la série GDP-France n'est pas stationnaire. 
+
+# 2. Estimation du modèle
+
+Étant donné que la série GDP-France est non satationnaire, nous devons appliquer la première différence dans l'estimation du modèle considéré. Pour se faire :
+
+```{r}
+lpib <- log(lpib)
+plot(diff(lpib)); abline(h=0, col = "grey")
+grid()
+
+par(mfrow = c(1, 2))
+acf(diff(lpib), drop.lag.0 = TRUE, type = "correlation")
+acf(diff(lpib), type = "partial")
+```
+
+De manière dont les graphiques se présente, il nous est difficile de déterminer s'il s'agit de quel modèle faut adopter. Mais aussi, les différents tests nous ont donnés différents modèles. Ainsi, nous estimons plusieurs modèles et au final nous choisirons un pour la prévision. Le critère de AIC et BIC va déterminer le modèle à prendre. 
+
+```{r modelos}
+modelo1 = Arima(lpib, order = c(2, 1, 2))
+modelo2 = Arima(lpib, order = c(1, 1, 1))
+
+modelo3 = Arima(lpib, order = c(0, 2, 2))
+
+auto.arima(lpib, ic = "aic")
+auto.arima(lpib, ic = "bic")
+```
+
+# 3. Vérification des modèles
+
+Nous allons vérifier, à l'aide de tests statistiques, la significance des coefficients de modèles (test de robusteste des coefficients). 
+```{r}
+coeftest(modelo1)
+```
+
+Les coefficients du modèle ARIMA(2, 1, 2) ne sont pas significatifs, à l'exception de AR(1).
+```{r}
+coeftest(modelo2)
+```
+
+Les coefficients du modèle ARIMA(1,1,1) montre que AR(1) est statistiquement significatif.
+
+
+```{r}
+coeftest(modelo3)
+```
+
+
+Les coefficients du modèle ARIMA (0, 2, 2) sont statistiquement significatifs. 
+
+Pour faire le choix d’un modèle, nous appelons le critère AIC et BIC. Nous prendrons la valeur la plus petite. On peut voir aussi l’ecart type de chaque modèle. 
+
+
+```{r}
+AIC(modelo1, modelo2, modelo3)
+```
+```{r}
+BIC(modelo1, modelo2, modelo3)
+```
+
+Bien que à différence peu, nous optons pour le modèle ARIMA (0, 2, 2) qui indique la valeur inférieur du critère AIC et BIC.
+
+Nous allons à présent voir le comportement des résidus de notre modèle choisi. 
+
+### 1. Test d'autocorrelation résiduelle
+
+```{r}
+acf(modelo3$residuals, drop.lag.0 = TRUE)
+```
+
+Le test informel nous indique que les résidus sont normalement distribués.
+
+### 2. Test de Box-Pierce (1970) ou test de Ljung-Box (1978)
+
+La statistique Q de Box-Pierce (1970) ou celle modifiée par Ljung-Box (1978) vérifie si les k premiers coefficients d’autocorrélations sont statistiquement égales à zéro:
+
+### 3. Test de Box & Pierce (1970)
+
+```{r}
+Box.test(modelo3$residuals, lag = 10, type = "Box-Pierce", fitdf = 1)
+```
+
+Les coefficients d'autocorrelation résiduelles sont statistiquement égales à zéro. On rejet donc l'hypothèse nulle. Le p-value est significatif. 
+
+### 4. Test de Ljung & Box (1978)
+
+```{r}
+Box.test(modelo3$residuals, lag = 10, type = "Ljung-Box", fitdf = 1)
+```
+
+P-value est supérieur au seuil de 5%, ce qui revient à rejeter l'hypothèse nulle.
+
+```{r}
+for (i in 1:10) {
+  b = Box.test(modelo3$residuals, i, type = "Ljung-Box")$p.value
+  print(b)
+}
+```
+
+Tous les p-values du test sont statisquement significatifs c.à.d supérieur au seuil de 5%. L'hypothese nulle est donc rejeter. On peut aussi toute fois voir ce comportement avec le graphique de Ljung & Box :
+
+
+```{r}
+tsdiag(modelo3, gof.lag = 10)
+```
+
+Le graphique en bas indique que les p-values sont hauts, alors on rejet l'hypothèse nulle a ce point. 
+
+### 5. Test de normalité des résidues
+
+Nous utilisons ici deux tests : Jarque-Bera & Shapiro-Wilk (1965).
+
+1. *Test de Jarque-Bera*: Ce test est logiquement utilisé pour les grands échantillons.
+
+Le test de Jarque-Bera (JB) analyse si les moments de la série estimée (dans ce cas, les résidus) sont les mêmes que la normale. Dans cette hypothèse, l’asymétrie est égale à zéro et le kurtosis est égal à 3.
+
+2. *Test Shapiro-Wilk* (1965): Peut être utilisé pour des échantillons de n’importe quelle taille.
+
+Le test est basé sur le calcul de la statistique W qui vérifie si un échantillon aléatoire de taille *n* provient d’une distribution normale.
+
+```{r}
+par(mfrow = c(1, 2))
+hist(modelo3$residuals)
+grid()
+plot(density(modelo3$residuals, kernel = "gaussian"))
+grid()
+```
+
+L'nanlyse graphique nous fait remarquer que les erreurs sont normalement distribuées.
+
+#### 1. Test de Jarque-Bera
+```{r}
+jarque.bera.test(modelo3$residuals)
+```
+
+On rejet l'hypothèse nulle qui dit que les résidus ne sont pas normalement distribués.
+
+
+#### 2. Test de Shapiro-Wilk
+```{r}
+shapiro.test(modelo3$residuals)
+```
+
+Au seuil de 5%, on rejet l'hypothèse nulle. Les résidus suivent une loi normale. 
+
+## 6. Test d'hétéroscédasticité (ARCH-LM)
+
+Lorsque les variances des résidus des variables examinées sont différentes. L'hypthèse nulle est la présence homoscédasticité. 
+```{r}
+ArchTest(modelo3$residuals, lags = 10)
+```
+
+Au seuil de 5%, on ne rejet pas l'hypothèse nulle. On est en présence d'homoscédasticité des erreurs. C'est à dire que la variance est constante pour toute les variables. 
+
+# 4. Prévision du modèle ARIMA (0, 2, 2)
+
+Avant de faire la prévision, nous allons transformer notre série. 
+
+## Transformation de Box & Cox
+
+Les Raisons pour transformer les données: stabiliser la variance et rendre additif l’effet saisonnier.
+
+Dans le cas des séries économiques et financières, il peut être nécessaire d’appliquer à la série d’origine une transformation non linéaire, telle que la transformation logarithmique ou celle proposée par Box-Cox (1964).
+
+```{r}
+lambda <- BoxCox.lambda(lpib)
+print(lambda)
+```
+
+En réalité, nous n'allons pas appliquer puisque la série a été transformé en log (voir ci-dessus). 
+
+```{r}
+prevision <- forecast(modelo3, h =5, level = c(0.90, 0,95),
+                      biasadj = FALSE)
+print(prevision)
+```
+
+```{r plot prevision,  fig.height=6, fig.width=10}
+sca <- 1e9
+prevision$mean <- exp(prevision$mean) / sca 
+prevision$upper <- exp(prevision$upper) / sca 
+prevision$lower <- exp(prevision$lower) / sca 
+prevision$x  <- exp(prevision$x) / sca 
+
+plot(prevision)
+grid()
+```
+
+
+
+
+

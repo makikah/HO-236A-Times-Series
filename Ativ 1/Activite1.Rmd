@@ -1,0 +1,367 @@
+---
+title: "Atividade 1"
+author: "Henri Makika^[State University of Campinas, São Paulo.]"
+date: "7/10/2019"
+output: pdf_document
+---
+
+\tableofcontents
+
+\newpage
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE,
+                      fig.width = 8, fig.height = 6)
+```
+
+## Données *ipeadata*
+
+A partir da série enviada por email, responda em um arquivo:
+
+1. Elaborar um gráfico com a série
+
+2. Faça o correlograma (função de autocorrelação). 
+
+3. A partir do gráfico da série e do correlograma qual a sua conclusão sobre a estacionariedade da série?
+
+4. Faça o teste de raiz unitária ADF, explicitando e analisando cada etapa do teste. A partir deste resultado qual a conclusão sobre a estacionariedade da série?
+
+5. Faça o Teste de PP e análise os resultados. A partir deste resultado qual a conclusão sobre a estacionariedade da série?
+
+6. Faça o Teste de DF-GLS (ou ERS) e análise os resultados. A partir deste resultado qual a conclusão sobre a estacionariedade da série?
+
+7. Faça o Teste de KPSS e análise os resultados. A partir deste resultado qual a conclusão sobre a estacionariedade da série?
+
+## Importation des données 
+
+```{r}
+library(readxl)
+ipeadata_01_04_2019_10_32_ <- read_excel("ipeadata[01-04-2019-10-32].xls")
+dados = ipeadata_01_04_2019_10_32_
+head(dados)
+```
+
+Il nous est demandé de répondre à des questions ci-dessus en utilisant la série du produit intérieur brut des États-unis d'amérique sur la période allant de 1957 à 2015. La série trimestrielle est issue du *Fonds Monétaire International*.
+
+### 1. Elaborar um gráfico com a série
+
+```{r}
+Pib = ts(dados[,2], start = c(1957, 1), frequency = 4)
+
+par(mfrow = c(1,2))
+plot(Pib, main = "PIB_USA", xlab = "Trim/Ano", ylab = "PIB")
+grid()
+acf(Pib, main = "Correlation")
+```
+
+### 2. Faça o correlograma (função de autocorrelação). 
+
+```{r}
+par(mfrow = c(2,2))
+
+plot(Pib, main = "PIB de USA", ylab = "PIB")
+grid()
+acf(Pib, main = "Autocorrelation", ylab = "FAC", xlab = "Lags")
+
+DPIB = diff(Pib)
+plot(DPIB, main = "PIB en différence", ylab = "DPIB")
+grid()
+acf(DPIB, main = "Autocorrelation", ylab = "FAC", xlab = "Lags")
+```
+
+### 3. A partir do gráfico da série e do correlograma qual a sua conclusão sobre a estacionariedade da série?
+
+Un processus stochastique est dit stationnaire lorsque la moyenne et la variance sont constantes dans le temps; la covariance, dans ce cas, dépend de la distance entre les valeurs de la série. 
+
+Informellement pour notre série, nous pouvons donc conlure que notre  série n'est pas stationnaire, car le décallement sur le graphique d'autocorrélation (corrélogramme) est lente. C'est-à-dire que la moyenne et la variance sont dépendentes du temps. Traditionnellement, pour supprimer la tendance stochastique, on applique simplement l'opérateur de différence. Et maintenant nous nous vérifions à partir des tests de racine unitaire.
+
+### 4. Faça o teste de raiz unitária ADF, explicitando e analisando cada etapa do teste. A partir deste resultado qual a conclusão sobre a estacionariedade da série? 
+
+Tester l'existence de 1 RU dans $Y_{t}$ lors du processus de génération de la série est exprimé par l'une des expressions ci-dessous:
+
+1. Modèle avec constante et tendance déterministes
+
+$$Y_t = \alpha + \beta t + \rho Y_{t-1} + \varepsilon_t$$
+
+2. Modèle avec constante et sans tendance déterministes
+
+$$Y_{t} = \alpha + \rho Y_{t-1} + \varepsilon_t$$
+
+3. Modèle sans tendance ni constante (sans terme déterministes)
+
+$$Y_t = \rho Y_{t-1} + \varepsilon_t$$
+
+où $\alpha$ et $\beta t$ sont des composants déterministes, appelés constante ou dérive et tendance linéaire, respectivement; $\varepsilon_t$ est un blanc. 
+
+L'hypothèse nulle est que : $\rho = 1 , \gamma = 0 \rightarrow (1 RU)$
+
+L'hypothèse alternative est que : $\rho < 1, \gamma < 0 \rightarrow (0 RU)$
+
+
+```{r}
+library(TSA)
+library(urca)
+
+adf0 = ur.df(Pib, type = "trend", lags = 0)
+summary(adf0)
+plot(adf0)
+```
+
+Le test de DF (sans retard ou lags) nous indique que le modèle n'est stationnaire, il y a plus d'une racine unitaire. Dans ce cas, nous ne rejetons donc pas l'hypothèse nulle. Nous passons au test de ADF. 
+
+i. Modèle avec constante et tendance
+
+```{r}
+adf1 = ur.df(Pib, type = "trend", lags = 1)
+summary(adf1)
+plot(adf1)
+```
+
+En considérant le modèle avec constante et tendance déterministes, lags égal 1, on ne peut pas rejeter l'hypothèse nulle, il y a présence de racine unitaire. La valeur de tau3 ($-3.99$) est inférieur à la valeur statistique du test ($-1.8208$), la valeur de tau3 est loin de l'intervalle de confiance. Et la valeur de phi2 (6.22) est supérieure, donc nous avons plus d'une racine unitaire. 
+
+ii. Modèle avec constante sans tendance
+
+```{r}
+bic.adf2 = ur.df(Pib, type = "drift", lags = 1)
+summary(bic.adf2)
+plot(bic.adf2)
+```
+
+La valeur du test statistique est de 1.8839, et la valeur de tau2 est de $-3.46$. Cette dernière est de nouveau loin de l'intervalle de confiance. La valeur de phi1 est supérieure à l'unité, nous pouvons donc conlure que la série PIB de USA, en considérant le modèle avec constante sans tendance et en considérant lag égal à 1, elle n'est pas stationnaire. 
+
+iii. Modèle sans tendance ni constante
+
+```{r}
+pib.adf = ur.df(Pib, type = "none", lags = 1)
+summary(pib.adf)
+```
+
+Étant donné que la valeur de test statistique qui est de 6.5127 et la valeur de tau1 ($-1.95$ au seuil de 5pct), cette valeur est loin de l'intervalle de confiance. Il sied de conclure que la série PIB américaine est non stationnaire en considérant le modèle sans tendance et ni constante. Quand à cela, nous considérons la série en différence pour tester la stationnarité.
+
+```{r}
+DPIB.adf = ur.df(DPIB, type = "none", lags = 1)
+plot(DPIB.adf)
+summary(DPIB.adf)
+```
+
+Bien que nous avons considéré le PIB américain en différence, la série continue toujours à être non stationnaire. À cette effet, on ne peut pas donc définir le modèle AR(1) étant donnée que la série n'est pas stationnaire. Si la série était stationnaire, il serait valable aussi de vérifier en utilisant le critère d'information (AIC ou BIC) pour déterminer quel modèle utilisé pour la prévision par exemple. Mais nous n'avons pas utilisé ce critère puisque la série PIB américain n'est toujours pas stationnaire, bien qu'on a considéré la différence première. 
+
+### 5. Faça o Teste de PP e análise os resultados. A partir deste resultado qual a conclusão sobre a estacionariedade da série?
+
+Le pouvoir du test de Dickey-Fuller :
+
+*Erreur de type I*: probabilité de rejeter l'hypothèse nulle lorsque cette hypothèse est vraie.
+
+*Erreur de type II*: probabilité de ne pas rejeter l'hypothèse nulle quand l'hypothèse alternative est vraie.
+
+*Pouvoir du Test*: est calculé comme 1 moins la probabilité d'une erreur de type II, c'est-à-dire la probabilité de rejet de l'hypothèse nulle quand elle est effectivement fausse.
+
+Le pouvoir du test de DF et ADF est en général faible, en raison de la persistance élevée et/ou de la tendance présente dans les variables macroéconomiques.
+
+En conséquence, on a souvent tendance à accepter l’existence de d'une racine unitaire alors qu'en fait nous devrions le rejeter.
+
+Le test DF suppose que les résidus ne sont pas corrélés, un moyen de s’assurer est donc d'inclure les différences dans la variable dépendante. En incluant un plus grand nombre de régresseurs qui ne sont pas présent dans le processus, cela ne fait qu’aggraver le problème comme c'est le cas avec la série PIB américain.
+
+Pour se faire, Phillips et Perron (1988) ont proposé une correction non paramétrique du test de Dickey et Fuller, générant une statistique cohérente même s'il existe une corrélation en série dans les erreurs. Le test est basé sur la même hypothèse nulle et la même structure que le test DF.
+
+i. Modèle avec constante
+
+```{r}
+pib.pp = ur.pp(Pib, type = "Z-tau", model = "constant", lags = "short")
+plot(pib.pp)
+summary(pib.pp)
+```
+
+ii. Modèle avec tendance
+
+```{r}
+pib.pp = ur.pp(DPIB, type = "Z-tau", model = "trend", lags = "short")
+plot(pib.pp)
+summary(pib.pp)
+```
+
+Le modèle avec tendance, par defaut, nous pouvons rejetter l'hypothèse nulle de non stationnarité. Il nous renseigne que le modèle est stationnaire. Mais s'il faut considérer le modèle avec le terme constante, il est possible de ne pas rejetter l'hypothèse nulle de la non stationnarité. La série est donc non stationnaire. 
+
+### 6. Faça o Teste de DF-GLS (ou ERS) e análise os resultados. A partir deste resultado qual a conclusão sobre a estacionariedade da série?
+
+Elliot, Rothemberg et Stock (1996) ont proposé un test pour résoudre les complications causées par l'inclusion de termes déterministes en présence de racine unitaire DF et ADF. Il s’appelle le test ERS, mais il est également appelé DF-GLS ou ADF-GLS car il s’agit d’une extension des tests DF.
+
+Pour augmenter la puissance du test, la procédure de test DF-GLS consiste à filtrer la constante et la tendance (le cas échéant) avant d'appliquer le test DF ou ADF. Les nouvelles valeurs critiques ont été simulées par ERS (1996).
+
+Il est appliqué chaque fois que le test de ADF conclut que le modèle approprié contient des composantes déterministes, telles que *constante* et *tendance*.
+
+Le plus grand pouvoir du test est de rejeter l'hypothèse nulle de l'existence d'une racine unitaire lorsque la série est stationnaire. Si, dans le test ADF, le modèle ne contient pas de composantes déterministes, le test DF-GLS ne présente aucun avantage. Dans notre série ni cela se vérifie. 
+
+```{r}
+pib.ers = ur.ers(Pib, type = c("DF-GLS"), model = c("trend"), lag.max = 1)
+plot(pib.ers)
+summary(pib.ers)
+```
+
+On ne peut pas rejeter l'hypothèse nulle de la non stationnarité, la série PIB américain est donc non stationnaire. Nous avons considéré le modèle avec tendance. La valeur statistique du test est de $-0.5511$ et la valeur critique de test de DF-GLS, au seuil de 5pct, est inférieure et loin de l'intervalle de confiance. Il est donc possible ne ne pas rejeter l'hypothèse nulle de la non stationnarité.  
+
+### 7. Faça o Teste de KPSS e análise os resultados. A partir deste resultado qual a conclusão sobre a estacionariedade da série?
+
+Kwiatkowski, Phillips, Schmidt et Shin (1992) ont mis au point un test de racine unitaire appelé KPSS.
+
+Le test de Dickey-Fuller a un faible pouvoir prédictive, c'est-à-dire que le test a tendance à ne pas rejeter l'hypothèse nulle d'une infinité de séries économiques.
+
+En pratique, le test KPSS est appliqué pour vérifier la conclusion du tests DF ou ADF. L'hypothèse nulle du test est que la série est stationnaire et l'hypothèse alternative est que la série est non stationnaire. 
+
+i. Modèle avec le terme constante
+
+```{r}
+pib.kpss = ur.kpss(Pib, type = "mu", lags = "short", use.lag = NULL)
+plot(pib.kpss)
+summary(pib.kpss)
+```
+
+ii. Modèle avec constante et tendance
+
+```{r}
+pib.kpss = ur.kpss(Pib, type = "tau", lags = "short", use.lag = NULL)
+plot(pib.kpss)
+summary(pib.kpss)
+```
+
+Le test de KPSS nous indique que le modèle est stationnaire, en considérant le modèle qu'avec le terme constante. Le modèle avec constante et tendance nous indique que la série n'est pas stationnaire. La valeur statistique du test est de 1.047 et en considérant le seuil de 5pct, la valeur critique est de 0.146 qui à l'extérieur de l'intervalle de confiance. Il est donc possible de conclure que le PIB américain est non stationnaire. 
+
+## Suite de l'activité 1
+
+### 8. Para a série encaminhada aplique os testes para analisar se há quebra estrutural.
+
+La détermination de la rupture structurelle corrobore l’hypothèse selon laquelle un fait ou un événement a modifié la structure d’une variable économique.
+
+En présence de rupture structurelle, les tests sont biaisés en faveur du non-rejet de l'hypothèse de racine unitaire. 
+
+i. Test de Chow (1960)
+
+Le test propose la comparaison des résidus d'un modèle dans lequel deux régressions sont calculées, séparées par la date à laquelle la rupture (équivalente à un modèle sans restriction) est supposée avoir lieu avec les résidus d'un modèle d'une seule régression pour l'ensemble de la période (modèle restreint). 
+
+La limite du test est qu'il est nécessaire de connaître le moment de la rupture structurelle. Il existe des tests qui contournent cette limitation, et qui sont basés sur cette même statistique.
+
+ii. La variation du test de Chow proposée par Zeileis et al (2001) qui effectue le test pour plusieurs périodes dans une même fenêtre. 
+
+iii. Test de Bai et Perron (2003)
+
+Effectue l'analyse en cas de rupture structurelle dans une série chronologique. Le test est basé sur une régression de la variable par rapport à une constante. Dans l'application d'un algorithme de programmation dynamique qui minimise la somme des résidus quadratiques.
+
+```{r}
+library(strucchange)
+
+pib.chow = Fstats(Pib ~ 1, from = 0.15)
+breakpoints(pib.chow) 
+sctest(pib.chow)
+
+```
+
+Le test de Chow-Zeileis et al (2001) nous indique sur la possibilité de reeter l'hypothèse nulle de non existence de rupture structurelle. Le test indique qu'il y a rupture structurelle au troisième trimestre de 1993. Nous appliquons, à présent, le test de Bai et Perron (2003) pour indiquer s'il y a eu plusieurs ou non ruptures structurelles.  
+
+```{r}
+pib.bp = breakpoints(Pib ~ 1, h = 0.15, breaks = NULL)
+summary(pib.bp)  
+plot(pib.bp)
+```
+
+Le test de Bai et Perron (2003) nous renseigne qu'il y a au total cinq ruptures structurelles pour la série PIB américain. Cela pourrait être une de raisons pour lesquelle les tests sont biaisés en faveur du non-rejet de l'hypothèse nulle de racine unitaire présentée ci-haut.  
+
+### 9. A partir deste resultado aplique o teste de RU com quebra estrutural conhecida
+
+Un choc est cause un impact sur la tendance et/ou intercept. En présence d'une rupture structurelle, les tests sont biaisés pour le non-rejet de l'hypothèse de racine unitaire.
+Perron (1989) propose un test de racine unitaire avec rupture structurelle, dans lequel une rupture structurelle unique et connue est supposée en utilisant tout l'échantillon disponible. Considérant une marche aléatoire avec dérive, il existe trois types de ruptures structurelles possibles:
+
+1. un changement de niveau de série;
+2. un changement d'inclination;
+3. les deux changements.
+
+```{r}
+N = length(Pib)
+
+DP = ts(rep(0, N))
+DL = ts(rep(0, N))
+DS = ts(rep(0, N))
+
+DP = ts (rep(0,N))
+DL = ts (rep(0,N))
+DS = ts (rep(0,N))
+Tb = 147
+
+for (t in 1:N) {
+  if(t == Tb + 1)
+    DP[t] = 1
+  if(t > Tb){
+    DL[t] = 1
+    DS[t] = t - Tb
+  }
+}
+
+## Ajuste do modelo da hipótese alternativa
+## Estimação do modelo
+
+trend = ts(seq(1, N))
+model = lm(Pib ~ trend + DL)
+summary(model)
+```
+
+L'obtention de résidus du modèle estimé :
+
+```{r}
+res = model$residuals
+par(mfrow = c(1, 1))
+plot(res)
+```
+
+Nous réalisons le test de ADF :
+
+```{r}
+library(urca)
+
+res.df = ur.df(res, type = "none", lags = 4, selectlags = "BIC")
+summary(res.df)
+plot(res.df)
+```
+
+Au seuil de 5pct, la valeur du test statistique est proche de la valeur critique pour le test statistique, et pourtant en considérant ce seuil, les deux valeurs se retrouve proche de la région critique, on peut alors rejeter l'hypothèse nulle de racine unitaire.
+
+```{r}
+res0.df = ur.df(res, type = "none", lags = 0)
+summary(res0.df)
+
+lambda = Tb/N
+print(lambda)
+```
+
+### 10. Proposto por Perron e o teste de RU com quebra estrutural proposto por Zivot e Andrews.
+
+Zivot et Andrews (1992) ont fait valoir que la modélisation de Perron (1989) aboutissait au rejet de l'hypothèse nulle, l'hypothèse alternative devant traiter la rupture structurelle comme une inconnue.
+
+Ils proposent un modèle dans lequel le point de rupture est choisi de manière à ce que la rupture structurelle obtienne le plus grand poids possible pour accepter le modèle stationnaire.
+
+L'hypothèse nulle est dit que : $Y_t = \mu + Y_{t-1} + \varepsilon_t,$
+
+sans rupture, contre les mêmes alternatives de Perron (1989). La valeur de $\lambda$ est choisie afin de minimiser la statistique *t-Student*.
+
+i. Modelo com mudança na inclinação (tendência)
+
+```{r}
+pib0.za = ur.za(Pib, model = "trend")
+summary(pib0.za)
+plot(pib0.za)
+```
+
+ii. Modelo com mudança no nível e na tendência
+
+```{r}
+pib1.za = ur.za(Pib, model = "both")
+summary(pib1.za)
+plot(pib1.za)
+```
+
+Le test de racine unitaire avec *rupture structurelle* proposé par Zivot et Andrews, modèle avec tendance et modèle en niveau et en tendance, nous renseigne que l'hypothèse nulle de racine unitaire ne peut pas être rejetée à n'importe quel niveau de significance. Les valeurs critiques, à n'importe quel seuil de significance, sont à l'extérieurs de la région critique pour le rejet de l'hypothèse nulle de racine unitaire.   
+
+
+
+
+
+
+

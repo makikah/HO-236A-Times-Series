@@ -1,0 +1,132 @@
+---
+title: "Vetor Auto-Regressivo - VAR"
+author: "Henri Makika"
+date: "May 21, 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+## Introdução
+
+**Modelo univariado auto-regressivo**:
+
+$$
+\tag{1}
+Y_{t} = \alpha_1Y_{t-1} + \alpha_2Y_{t-2} +...+ \alpha_{p}Y_{t-p} + \varepsilon_{t}$$
+
+Sendo que
+$$\tag{2}
+E(\varepsilon_{t}) = 0; E(\varepsilon_{t}^2) = \sigma_{\varepsilon}^2; E(\varepsilon_{t}, \varepsilon_{t-j}) = 0$$
+
+$E(\varepsilon_{t}, \varepsilon_{t-j}) = 0$, significa que os valores de $\varepsilon_{t}$ são independentes. c'est à dire que ausência de correlação serial temporal. 
+
+O VAR trata somente uma série que já está estacionário. 
+
+**Modelo multivariado**
+
+$\blacklozenge$Estudar o comportamento individual de uma série mas também as relações entre as séries;
+
+$\blacklozenge$Entender relações dinâmicas sob o tempo entre as séries;
+
+$\blacklozenge$Melhorar as previsões das séries individuais utilizando informações adicionais.
+
+**Modelo VAR irrestrito ou padrão**:
+
+$\blacklozenge$Proposto por Sims (1980);
+
+$\blacklozenge$Todas as variáveis são tratadas como sendo, a priori, endógenas;
+
+$\blacklozenge$Busca responder qual a trajetória da série, dado um choque estrutural.
+
+*VAR irrestrito*: É um modelo auto-regressivo multivariado em que cada variável é
+expressa como função de suas defasagens e das defasagens das demais variáveis do modelo.
+
+Modelo VAR(1) na forma padrão ou reduzida:
+
+$$
+\tag{3}
+X_{t} = A_{0} + A_{1}X_{t-1} + e_{t}$$
+em que :
+
+$$\blacklozenge A_{0} = B^{-1} \Gamma_{0}$$ 
+$$\blacklozenge A_{1} = B^{-1} \Gamma_{1}$$
+$$\blacklozenge e_{t} = B^{-1} \varepsilon_{t}$$
+Onde $\Gamma_{0}$ é o vetor de constantes n x 1; $\Gamma_{i}$ matrizes n x n. 
+
+## Packages 
+
+```{r}
+library(readxl)
+library(urca)
+library(MASS)
+#library(MTS) # à installer
+library(vars) # à istaller
+library(lmtest)
+```
+```{r}
+canada = read_excel("~/Videos/Unicamp_IE 2019/HO:236A Times Series/Aula 9/Canada.xlsx")
+```
+
+```{r}
+View(canada)
+```
+
+```{r}
+emp = canada[,2]
+prod = canada[,3]
+rw = canada[,4]
+u = canada[,5]
+```
+
+```{r}
+layout(matrix(1:4, nrow = 2, ncol = 2))
+plot.ts(emp, main = "Employment")
+plot.ts(prod, main = "Produtivity")
+plot.ts(rw, main = "Real Wage")
+plot.ts(u, main = "Unemployment")
+```
+
+Vamos plotar a série em diferença :
+
+```{r}
+layout(matrix(1:4, nrow = 2, ncol = 2))
+demp = diff(canada[,2])
+dprod = diff(canada[,3])
+drw = diff(canada[,4])
+du = diff(canada[,5])
+
+par(mfrow =c(1, 1))
+plot.ts(demp, main = "Employment")
+plot.ts(dprod, main = "Produtivity")
+plot.ts(drw, main = "Real Wage")
+plot.ts(du, main = "Unemployment")
+```
+
+## Identificação do modelo VAR
+
+```{r}
+ordem = VARselect(diff(canada), lag.max = 8, type = "constant")
+print(ordem)
+```
+
+## Estimação do modelo VAR
+
+```{r}
+modelo = VAR(diff(canada), p = 2, type = "const")
+print(modelo)
+```
+## Resumo por equação
+
+```{r}
+summary(modelo, equation = "e")
+plot(modelo, names = "e")
+```
+```{r}
+## Raíses
+roots(modelo, modulus = F)
+roots(modelo)
+```
+

@@ -1,0 +1,397 @@
+---
+title: "Stylized Facts of Financial Market Using the Machine Learning"
+author: "Henri Makika^[Master’s degree in economics (University of Campinas, São Paulo). E−mail : hd.makika@gmail.com]"
+date: "May 24, 2019"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE,
+                      fig.width = 12, fig.height = 8)
+```
+
+# 0. Faits stylisés sur les rendements des marchés financiers
+
+# 1. Faits stylisés pour les séries univariées
+
+Avant de passer à la modélisation des risques des marchés financiers, il est utile d’examiner et de revoir les caractéristiques typiques des données des marchés financiers. Celles−ci sont résumées dans la littérature sous forme de «faits stylisés» (nous renvoyons le lecteur de lire Campbell et al. 1997 et McNeil et al. 2005). Ces propriétés observées ont des implications importantes pour déterminer si le modèle de risque choisi est approprié ou non. En d'autres termes, un modèle de risque qui ne prend pas correctement en compte les caractéristiques de la série chronologique des données des marchés financiers ne sera pas non plus utile pour dériver des mesures de risque. Pour les données observées sur les marchés financiers, les faits stylisés suivants peuvent être énoncés:
+
+i. Les données chronologiques sur les retours, en particulier les résultats journaliers, ne sont généralement pas indépendantes et sont distribuées de manière identique *(iid)*. Ce fait n'est pas compromis par les faibles valeurs absolues du coefficient d'autocorrélation de premier ordre.
+
+ii. La volatilité des processus de retour n'est pas constante dans le temps.
+
+iii. Les rendements absolus ou carrés sont hautement autocorrélés.
+
+iv. La distribution des rendements des marchés financiers est leptokurtic^[Voir statistique descriptive]. La survenue d'événements extrêmes est plus probable par rapport à la distribution normale.
+
+v. Les rendements extrêmes sont observés de près dans le temps (clustering de volatilité^[Terme approprié à la finance]).
+
+vi. La distribution empirique des rendements est biaisée à gauche; les rendements négatifs sont plus susceptibles de se produire que les rendements positifs.
+
+Notre objectif est donc de montrer comment analyser le marché financier en utilisant les techniques à la frontière technologique (Machine Learning). 
+
+### Les packages pour cette analyse :
+
+
+```{r}
+library(timeSeries)  # Pour l'analyse de times series
+library(fBasics)     # Pour l'analyse basique sur la finance
+library(evir)        # Le package où se trouve la base de données
+```
+
+## Détails
+
+Il s'agit donc de l'ensemble de données des déclarations quotidiennes, qui est contenu dans le package $evir$. Cette série commence en janvier 1973 et se termine en juillet 1996 et comprend 6146 observations. nous allons vérifier si les faits stylisés (cités ci−dessus) s’appliquent au rendement des actions de Siemens.
+
+Les packages $fBasics$ (Würtz et al. 2014) et $evir$ sont chargés en premier avant de commencer l'analyse. Les fonctions contenues dans ces packages sont utilisées pour produire certains graphiques. Ensuite, le jeu de données *Siemens* est chargé et converti en un objet de la classe $timeSeries$ avec la fonction du même nom. La représentation chronologique des pourcentages de rendements, une représentation en boîte de ces dernières, ainsi que la fonction de l'autocorrélation et l'autocorrélation partielle, sont ensuite produites et illustrées ci−bas. Comme on peut le déduire du graphique de la série chronologique, il existe un regroupement de la volatilité.
+
+### Téléchargement de la base de données
+
+
+```{r}
+data(siemens)
+```
+
+### Analyse des données
+
+
+```{r}
+SieDates = as.character(format(as.POSIXct(attr(siemens, "times")), 
+                               "%Y-%m-%d"))
+
+SieRet = timeSeries(siemens*100, charvec = SieDates)
+colnames(SieRet) = "SieRet"
+```
+
+
+### Stylised facts I
+
+
+```{r}
+par(mfrow = c(2, 2))
+
+seriesPlot(SieRet, title = FALSE, main = "Rendements quotidiens de Siemens",
+           col = "blue")
+
+boxplot(SieRet, title = FALSE, main = "Box plot sur le rendement", 
+        col = "blue", cex = 0.5, pch = 19)
+
+acf(SieRet, main = "ACF sur le rendement", lag.max = 20, 
+    ylab = "", xlab = "", col = "blue", ci.col = "red")
+
+pacf(SieRet, main = "PACF sur le rendement", lag.max = 20, 
+     ylab = "", xlab = "", col = "blue", ci.col = "red")
+```
+
+Les rendements sont biaisés à gauche et les queues épaisses sont évidentes, comme le montre le graphique en boîte (panneau supérieur droit). La perte la plus importante est survenue le 16 octobre 1989, à -12.01%. Le rendement le plus élevé de 7.67% a été enregistré le 17 janvier 1991. L'asymétrie est de -0,52 et l'excès de kurtosis de 7.74, ce qui indique clairement une queue épaisse. La fonction d’autocorrélation (ACF) et la fonction d’autocorrélation partielle (PACF) suggèrent une légère autocorrélation de premier ordre. Incidemment, la série montre une variation systématique de la fréquence hebdomadaire; Bien que significatif, il est beaucoup moins prononcé que l'autocorrélation quotidienne.
+
+
+```{r}
+summary(SieRet)
+```
+
+
+### Stylised facts II
+
+
+```{r}
+SieRetAbs = abs(SieRet)
+
+SieRet100 <- tail(sort(abs(series(SieRet))), 100)[1]
+
+idx <- which(series(SieRetAbs) > SieRet100, arr.ind = TRUE)
+
+
+SieRetAbs100 = timeSeries(rep(0, length(SieRet)), 
+                          charvec = time(SieRet))
+SieRetAbs100[idx, 1] = SieRetAbs[idx]
+
+
+par(mfrow=c(2,2))
+acf(SieRetAbs, main = "ACF sur les reendements absolus", lag.max = 20,
+    ylab = "", xlab = "", col = "blue", ci.col = "red")
+
+pacf(SieRetAbs, main = "PACF sur rendements absolus", lag.max = 20,
+     ylab = "", xlab = "", col = "blue", ci.col = "red")
+
+qqnormPlot(SieRet, main = "QQ−Plot sur le rendement", title = FALSE,
+           col = "blue", cex = 0.5, pch = 19)
+
+plot(SieRetAbs100, type = "h", main = "Clustering de volatilité",
+     ylab = "", xlab = "", col = "blue")
+```
+
+Dans le tableau supérieur de nos graphiques, la fonction d'autocorrélation et de l'autocorrélation partielle des rendements absolus sont tracées. On voit que, ces différences sont significativement différentes de zéro et ne s’effacent que lentement. Dans le même tableau  (graphique inférieur gauche), le graphique quantile–quantile (QQ) est produit par rapport à la distribution normale. Les asymétries négatives et les queues lourdes se reflètent dans leurs valeurs quantitatives sur ce graphique. Enfin, dans le tableau (inférieur droit) les 100 plus grands rendements absolus ont été extraits de l’objet *SieRend*. Ces valeurs sont affichées dans le graphique inférieur droit. Ce graphique chronologique confirme plus clairement ce qui pouvait déjà être déduit du graphique supérieur gauche de notre tableau : premièrement, l'existence d'un regroupement de la volatilité (clustering volatility); et deuxièmement, que les rendements deviennent plus volatils dans la seconde moitié de la période considérée. Bien que ces faits stylisés ne soient illustrés que par les rendements boursiers de Siemens, ils sont non seulement valables pour la quasi−totalité des rendements boursiers pour cette période, mais s’appliquent également à d’autres classes d’actifs, telles que les obligations, les devises et les contrats à terme standardisés.
+
+
+
+# 2. Faits stylisés pour des séries multivariées
+
+Le point (1) présentait les faits stylisés pour les rendements univariés des marchés financiers. Du point de vue du portefeuille, les caractéristiques des séries à rendement multivarié présentent un intérêt aussi considérable. Voici donc les faits stylisés pour les séries multivariées :
+
+i. La valeur absolue des corrélations croisées entre les séries de rendements est moins prononcée et les corrélations contemporaines sont généralement les plus fortes.
+
+ii. En revanche, les rendements absolus révèlent des corrélations croisées élevées. Cette conclusion empirique est similaire au cas univarié.
+
+iii. Les corrélations contemporaines ne sont pas constantes dans le temps.
+
+iv. Les observations extrêmes d'une série de rendements s'accompagnent souvent d'extrêmes dans l'autre série de rendements.
+
+Pour ce point (2), les données boursières européennes quotidiennes pour la France, l'Allemagne et le Royaume−Uni sont utilisées. Cet ensemble de données est d'abord chargé dans R de manière automatique et converti à partir d'un objet avec l'attribut de classe $mts$ en un objet $zoo$. Le package $zoo$ (voir Zeileis et Grothendieck, 2005) est une alternative au package $timeSeries$ qui était utilisé dans le cas univarié. Ensuite, un graphique de série chronologique des données d'index est produit.
+La corrélation entre ces trois marchés boursiers européens est assez évidente dans le graphique ci−dessous. 
+
+
+### Packages
+
+
+```{r}
+library(zoo)
+```
+
+
+### Lecture des données
+
+
+
+```{r}
+data("EuStockMarkets")
+head(EuStockMarkets[,-2])
+```
+
+### Graphiques Times series
+
+
+```{r}
+EuroStock = as.zoo(EuStockMarkets)[, c("DAX", "CAC", "FTSE")]
+plot(EuroStock, xlab = "", main = "")
+```
+
+
+### Pourcentage des rendements
+
+
+```{r}
+EuroRend = diff(log(EuroStock))*100
+plot(EuroRend, xlab = "", main = "")
+```
+
+
+### Corrélations croisées
+
+
+
+
+```{r}
+layout(matrix(1:6, nrow = 3, ncol = 2, byrow = TRUE))
+
+ccf(EuroRend[,1], EuroRend[,2], ylab = "", xlab = "", lag.max = 20,
+    main = "Rendements de DAX et CAC")
+ccf(abs(EuroRend)[,1], abs(EuroRend)[,2], ylab = "", xlab = "", 
+    lag.max = 20, main = "Rendements absolus de DAX et CAC")
+ccf(EuroRend[,1], EuroRend[,3], ylab = "", xlab = "", lag.max = 20,
+    main = "Rendements de DAX et FTSE")
+ccf(abs(EuroRend)[,1], abs(EuroRend)[,3], ylab = "", xlab = "", 
+    lag.max = 20, main = "Rendements absolus de DAX et FTSE")
+ccf(EuroRend[,2], EuroRend[,3], ylab = "", xlab = "", lag.max = 20,
+    main = "Rendements de CAC et FTSE")
+ccf(abs(EuroRend)[,2], abs(EuroRend)[,3], ylab = "", xlab = "", 
+    lag.max = 20, main = "Rendements absolus de CAC et FTSE")
+```
+
+Comme indiqué précédemment, les rendements eux−mêmes sont à peine corrélés de manière croisée entre les différents marchés (France, Allemagne et Royaume−Uni) et diminuent assez rapidement (graphiques à gauche). Cependant, des corrélations croisées significatives sont évidentes pour leur contrepartie absolue. Ces *facts* sont les plus prononcés pour les Allemands vis-à-vis du marché boursier britannique.
+
+
+### Corrélations roulantes
+
+
+
+```{r}
+Coroul = function(x){
+  dimension = ncol(x)
+  rcorrel = cor(x)[lower.tri(diag(dimension), diag = FALSE)]
+  return(rcorrel)
+}
+
+rcorrel = rollapply(EuroRend, width = 250, Coroul, align = "right",
+                    by.column = FALSE)
+
+colnames(rcorrel) = c("DAX−CAC", "DAC−FTSE", "CAC−FTSE")
+plot(rcorrel, main = "", xlab = "")
+```
+
+Les trois graphiques des corrélations croisées sont assez similaires pour toutes les paires représentées, ainsi que leurs plages. Pour le DAX/CAC, la corrélation se situe entre 0.55 et 0.84, pour le DAX/FTSE, les valeurs sont comprises entre 0.44 et 0.75, et enfin pour le CAC/FTSE, la corrélation se situe dans l’intervalle compris entre 0.47 et 0.78.
+
+
+# 3. Optimisation de portefeuille robuste
+
+Nous présentons des méthodes d’optimisation de portefeuille dans lesquelles une sorte de mesure du risque et son niveau sont directement intégrés dans la pondération des instruments financiers. 
+
+### Portefeuilles à risque optimal
+
+Dans cette section, un outil graphique, à savoir les diagrammes de surface de risque, permet de contrôler toutes les répartitions d’actifs réalisables en ce qui concerne la diversification c'est-à-dire le risque implicite. Les fonctions permettant de créer ce type de tracé sont contenues dans le package $fPortfolio$.
+
+
+
+```{r}
+library(fPortfolio)
+library(FRAPO)
+```
+
+
+### Chargement de jeu de données
+
+
+```{r}
+data("MultiAsset")
+head(MultiAsset)
+```
+
+### Création de série chronologique sur les prix et les rendements
+
+
+```{r}
+pr <- timeSeries(MultiAsset, charvec = rownames(MultiAsset))
+data = returns(pr, methdo = "discrete", percentages = TRUE, trim = TRUE)
+```
+
+### Paramètres 
+
+```{r}
+NAssets = ncol(pr)
+ANames = colnames(pr)
+Sigma = cov(data)
+mu = colMeans(data)
+```
+
+
+### Surface de risque
+
+
+
+```{r}
+hull = markowitzHull(data, nFrontierPoints = 50)
+grid = feasibleGrid(hull, trace = FALSE)
+divers = bestDiversification(grid, trace = FALSE)
+```
+
+### Diversification standard des contributions au risque marginal 
+
+```{r}
+mrc.sd = function(data, weights){
+  sigma = cov(data)
+  a = mrc(weights, Sigma)
+  sd(a)
+}
+surf = riskSurface(divers, FUN = "mrc.sd")
+```
+
+
+### Portefeuille réalisable avec le ratio de diversification le plus élevé
+
+
+```{r}
+allWeights = attr(divers, "weights")
+idx = sort(unique(allWeights[,1]))
+dropt = matrix(0, nrow = length(idx), ncol = 2)
+idxRow = 1:length(idx)
+
+for (j in idx) {
+  w = matrix(allWeights[allWeights[,1] == j, -c(1, 2)], ncol = NAssets)
+  divm = vector()
+  length(divm) = nrow(w)
+  for (i in 1:nrow(w)) {
+    divm[i] = dr(w[i,], Sigma)
+    
+  }
+  divmidx = which.max(divm)
+  wopt = w[divmidx,]
+  dropt[idxRow[j],] = c(crossprod(wopt, mu), sqrt(crossprod(wopt, Sigma) %*% wopt))
+  
+}
+```
+
+
+### Surface superposée par niveau de risque
+
+
+```{r}
+surfacePlot(surf, type = "filled.contour", palette = topo.colors, addHull = TRUE,
+            addGrid = FALSE, addAssets = FALSE, xlab = "Surface Risk", ylab = "Surface Return",
+            main = "Convexe Hull avec Surface à Risque:\nStd.Dev. of MRC et MDP−ligne")
+lines(x = dropt[,2], y = dropt[,1], col = "blue", lwd = 2)
+box()
+
+# Spécial points autour du graphique
+
+frontier = portfolioFrontier(data)
+MVP = minvariancePoints(frontier)
+TGP = tangencyPoints(frontier)
+sap = singleAssetPoints(frontier)
+wewp = rep(1/NAssets, NAssets)
+mewp = crossprod(mu, wewp)
+sewp = sqrt(crossprod(wewp, Sigma) %*% wewp)
+ERC = PERC(Sigma)
+werc = Weights(ERC)/100.0
+merc = crossprod(mu, werc)
+serc = sqrt(crossprod(werc, Sigma) %*% werc)
+points(sap, col = "darkgreen", pch = 19, cex = 0.8)
+text(sap, ANames, col = "darkred", cex = 0.6, pos = 4)
+points(TGP, col = "tan", pch = 19, cex = 2.5)
+text(TGP[1], TGP[2], "TGP", col = "purple", cex = 0.5)
+points(x = sewp, y = mewp, col = "tan", pch = 19, cex = 2.5)
+text(sewp, mewp, "EWP", col = "purple", cex = 0.5)
+points(x = serc, y = merc, col = "tan", pch = 19, cex = 2.5)
+text(serc, merc, "ERC", col = "purple", cex = 0.5)
+points(MVP, col = "tan", pch = 19, cex = 2.5)
+text(MVP[1], MVP[2], "MVP", col = "purple", cex = 0.5)
+```
+
+
+
+```{r}
+sdmrc = surf$z
+c104 = which((sdmrc >= 10.35) & (sdmrc <= 10.45), arr.ind = TRUE)
+w104 = matrix(NA, nrow = nrow(c104), ncol = NAssets)
+colnames(w104) = ANames
+for (i in 1:nrow(c104)) {
+  gidx = which((allWeights[,1] == c104[i, 1]) & (allWeights[,2] == c104[i, 2]), arr.ind = TRUE)
+  w104[i,] = allWeights[gidx, -c(1, 2)]
+  
+}
+```
+
+
+### Risque de déviation standard
+
+
+```{r}
+sdmrc104 = apply(w104, 1, function(x)
+  sd(mrc(x, Sigma = Sigma)))
+sdr104 = apply(w104, 1, function(x)
+  sqrt(crossprod(x, Sigma) %*% x)*100)
+wEquity = w104[,1:6]
+wBonds = w104[,7:9]
+wGold = w104[,10]
+wEquity = rowSums(wBonds)
+wBonds = rowSums(wBonds)
+wAsset = cbind(wEquity, wBonds, wGold)*100
+ans = cbind(wAsset, sdmrc104, sdr104)
+colnames(ans) = c("Equity", "Bonds", "Gold", "StdDev.of MRC", "StdDev.Risk")
+rownames(ans) = 1:nrow(ans)
+ans 
+
+```
+
+
+Au total, 12 solutions réalisables sont situées à proximité de la courbe de niveau 10.4. Par exemple, uniquement en fonction du degré de regroupement des risques, une allocation de 100% en actions (la cinquième ligne) équivaut environ à un investissement de 29% en actions, 56% en obligations et 17% en or (neuvième ligne). Certes, les niveaux associés aux risques d’écart−type des différents portefeuilles. Toutefois, si l’on considère des allocations avec le même niveau de risque, celles−ci peuvent être très différentes. En d’autres termes, un risque d’écart type du portefeuille de 3.38% coupe deux fois la courbe de niveau 10,4. La première répartition concerne uniquement les actions et les obligations (environ deux tiers et un tiers, respectivement, comme indiqué dans la deuxième ligne), alors que dans le cas du deuxième portefeuille réalisable, environ 60% auraient été affectés à des actions, 21% à des obligations, et 17% en or (voir répartition à la ligne 11). Par conséquent, un investisseur prenant en compte le degré de concentration du risque et le niveau de risque d'écart type du portefeuille devrait être indifférent entre ces deux répartitions possibles.
+
+
+## Conclusion
+
+$$Merci!$$ 
+
+
+

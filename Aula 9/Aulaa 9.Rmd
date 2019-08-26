@@ -1,0 +1,282 @@
+---
+title: "Vetor Auto-Regressivo - VAR"
+author: "Henri Makika"
+date: "May 21, 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE,
+                      fig.width = 12, fig.height = 8)
+```
+
+## Introdução
+
+### Modelo univariado auto-regressivo :
+
+$$Y_{t} = \alpha_1Y_{t-1} + \alpha_2Y_{t-2} +...+ \alpha_{p}Y_{t-p} + \varepsilon_{t}$$
+
+Sendo que :
+
+$$E(\varepsilon_{t}) = 0; E(\varepsilon_{t}^2) = \sigma_{\varepsilon}^2; E(\varepsilon_{t}, \varepsilon_{t-j}) = 0$$
+
+$E(\varepsilon_{t}, \varepsilon_{t-j}) = 0$, significa que os valores de $\varepsilon_{t}$ são independentes. c'est à dire que ausência de correlação serial temporal. O VAR trata somente uma série que já está estacionário.
+
+### Modelo multivariado
+
+1. Estudar o comportamento individual de uma série mas também as relações entre as séries;
+
+2. Entender relações dinâmicas sob o tempo entre as séries;
+
+3. Melhorar as previsões das séries individuais utilizando informações adicionais.
+
+## Modelo VAR irrestrito ou padrão
+
+a. Proposto por Sims (1980);
+
+b. Todas as variáveis são tratadas como sendo, a priori, endógenas;
+
+c. Busca responder qual a trajetória da série, dado um choque estrutural.
+
+*VAR irrestrito*: É um modelo auto-regressivo multivariado em que cada variável é
+expressa como função de suas defasagens e das defasagens das demais variáveis do modelo.
+
+Modelo VAR(1) na forma padrão ou reduzida:
+
+$$X_{t} = A_{0} + A_{1}X_{t-1} + e_{t}$$
+
+em que :
+
+$$\blacklozenge A_{0} = B^{-1} \Gamma_{0}$$
+$$\blacklozenge A_{1} = B^{-1} \Gamma_{1}$$
+$$\blacklozenge e_{t} = B^{-1} \varepsilon_{t}$$
+
+Onde $\Gamma_{0}$ é o vetor de constantes n x 1; $\Gamma_{i}$ matrizes n x n.
+
+## Packages nécessaires pour estimation du modèle VAR
+
+```{r}
+library(readxl)
+library(urca)
+library(MASS)
+#library(MTS) # à installer
+library(vars)
+library(lmtest)
+```
+
+## Données à utiliser
+```{r}
+data(Canada)
+head(Canada)
+View(Canada)
+```
+
+## Visualisation de données dans un graphique
+
+```{r}
+emp = Canada[,1]
+prod = Canada[,2]
+rw = Canada[,3]
+u = Canada[,4]
+```
+
+Les données étant non stationnaire, nous travaillons en mettant les données en différence, puisque le modèle VAR veut que les données soient stationnaire.
+```{r}
+layout(matrix(1:4, nrow = 2, ncol = 2))
+plot.ts(diff(emp, main = "Employment"))
+plot.ts(diff(prod, main = "Produtivity"))
+plot.ts(diff(rw, main = "Real Wage"))
+plot.ts(diff(u, main = "Unemployment"))
+```
+
+## Identification du modèle VAR
+
+```{r}
+ordem = VARselect(diff(Canada), lag.max = 8, type = "const")
+ordem
+```
+
+## Estimation du Modèle VAR
+
+```{r}
+modelo = VAR(diff(Canada), type = "const", p = 2)
+modelo
+```
+
+## Resumo por equação
+
+```{r}
+summary(modelo, equation = "e")
+```
+
+```{r}
+plot(modelo, names = "e")
+```
+
+## Raíses
+
+```{r}
+roots(modelo, modulus = F)
+roots(modelo)
+```
+
+## Estabilidade do modelo
+
+
+```{r}
+modelo.estab = stability(modelo, type = "OLS-CUSUM")
+plot(modelo.estab)
+```
+
+## Autocorrelação dos resíduos 
+
+
+
+```{r}
+layout(matrix(1:4, nrow = 2, ncol = 2))
+acf(residuals(modelo)[,1], main = "Employment")
+acf(residuals(modelo)[,2], main = "Produtivity")
+acf(residuals(modelo)[,3], main = "Real Wage")
+acf(residuals(modelo)[,4], main = "Unemployment")
+```
+
+## Test de Portemanteau
+
+
+
+```{r}
+model.pt.asy = serial.test(modelo, lags.pt = 12, type = "PT.asymptotic")
+model.pt.asy
+```
+
+```{r}
+plot(model.pt.asy)
+```
+
+## Test Ljung-Box
+
+```{r}
+model.pt.adj = serial.test(modelo, lags.pt = 12, type = "PT.adjusted")
+model.pt.adj
+```
+
+```{r}
+plot(model.pt.adj)
+```
+
+
+## Test LM
+
+
+
+```{r}
+modelo.BG = serial.test(modelo, lags.bg = 12, type = "BG")
+modelo.BG
+```
+
+## Test de normalidade
+
+```{r}
+model.norm = normality.test(modelo, multivariate.only = FALSE)
+model.norm
+```
+
+## Mudança de ordenação
+
+
+```{r}
+Canada2 = Canada[,c(3, 1, 2, 4)]
+View(Canada2)
+
+modelo.alt = VAR(diff(Canada2), p = 2, type = "const")
+```
+
+## Test de normalidade apos mudança
+
+
+```{r}
+model.norm2 = normality.test(modelo.alt, multivariate.only = FALSE)
+model.norm2
+```
+
+## Previsão
+
+
+```{r}
+modelo.forec = predict(modelo.alt, n.ahead = 10, ci = 0.95)
+plot(modelo.forec)
+```
+
+Graphique de prévision là dessus.
+
+
+```{r}
+fanchart(modelo.forec)
+```
+
+## Test de Causalidade de Granger
+
+
+```{r}
+grangertest(diff(e) ~ diff(rw), order = 8, data = Canada2)
+```
+
+
+Le salaire au sens de granger ne cause pas la variation de l'emploi. Ou ne contribue pas pour prévoir l'emploi. Pas de cause à effet. $H_0$: de non causalité n'est pas rejété. 
+
+
+
+```{r}
+model.causal = causality(modelo.alt, cause = c("rw", "prod", "e"))
+model.causal
+```
+
+On rejet l'hypothèse nulle portante causa. 
+
+
+
+
+```{r}
+model.causal1 = causality(modelo.alt, cause = c("rw", "prod", "e"),
+                         vcov. = vcovHC(modelo.alt))
+model.causal1
+```
+
+## Fonction impulse
+
+
+
+```{r}
+modelo.irf = irf(modelo.alt, impulse = "rw", response = c("prod", "e", "U"),
+                 boot = TRUE, cumulative = FALSE, n.ahead = 8)
+plot(modelo.irf)
+```
+
+
+
+```{r}
+modelo.irf = irf(modelo.alt, impulse = "rw", response = c("prod", "e", "U"),
+                 boot = TRUE, cumulative = TRUE, n.ahead = 8)
+plot(modelo.irf)
+```
+
+
+## Decomposição da variância, FEVD
+
+
+```{r}
+modelo.decomp = fevd(modelo.alt, n.ahead = 10)
+plot(modelo.decomp)
+```
+
+
+
+
+
+
+
+
+
+
+
+

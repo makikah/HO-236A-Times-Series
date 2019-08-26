@@ -1,0 +1,19 @@
+# Log started 2019-06-24 10:18
+# Record of session commands.  Please note that this will
+# likely require editing if it is to be run as a script.
+open \
+  "/home/henri/Videos/Unicamp_IE 2019/HO:236A Times Series/Aula 13/DadosSetorPublico.xlsx"
+setobs 12 2001:12 --time-series
+coint2 12 Serie6673 Serie4513
+adf 11 Data --c --test-down=AIC --gls --perron-qu
+# model 1
+tsls Serie6673 0 Serie4189 ; 0 Serie13522 --gmm
+vecm 12 1 Serie6673 Serie4513 Data
+rename 2 NSFP
+setinfo NSFP --description="Dı́vida lı́quida do setor público"
+rename 3 DLSP
+rename 4 JUROS
+rename 5 IPCA
+gnuplot IPCA --time-series --with-lines
+gnuplot IPCA --time-series --with-lines
+gnuplot JUROS --time-series --with-lines

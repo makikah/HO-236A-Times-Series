@@ -1,0 +1,154 @@
+---
+title: "Excercício BUENO"
+author: "Henri Makika"
+date: "6/4/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE,
+                      fig.width = 12, fig.height = 8)
+```
+
+## Packages
+
+
+
+```{r}
+library(MASS)
+library(urca)
+library(vars)
+library(lmtest)
+library(readxl)
+```
+
+## Transformar a série em times series 
+
+
+```{r}
+DadosBueno = read_excel("~/Videos/Unicamp_IE 2019/HO:236A Times Series/Aula 10/DadosBueno.xls")
+Dados = ts(DadosBueno[,2:17], start = c(1994, 9), frequency = 12)
+head(Dados)
+```
+
+
+```{r}
+layout(matrix(1:4, nrow = 2, ncol = 2))
+plot(Dados[,1], main = "Juros")
+plot(Dados[,2], main = "Câmbio")
+plot(Dados[,3], main = "ADM")
+plot(Dados[,4], main = "Livres")
+```
+
+
+## Test de RU
+Vou fazer depois
+
+## Nova organizaçao
+
+```{r}
+colunas <- c(4:1, 5:16)
+Dados1 <- ts(Dados[, colunas], start = c(1994, 9), frequency = 12)
+head(Dados1, 24)
+```
+
+## Seleção de ordem de VAR
+
+Seleciona-se as variáveis endógenas de 1:4; e as variáveis exógenas de 5:16. O lag.max = 8 significa que estão sendo ajustados 8 modelos. A partir dos critérios de informação, seleciona-se a melhor especificão do melhor modelo.
+
+```{r}
+m = VARselect(Dados1[,1:4], lag.max = 8, type = "const", exogen = Dados1[,5:16])
+print(m)
+```
+
+
+## Estimação do modelo
+
+
+```{r}
+modelo.estima1 = VAR(Dados1[,1:4],
+                    p = 24,
+                    type = "const",
+                    exogen = Dados1[,5:16])
+summary(modelo.estima1)
+```
+
+Os critérios de informação indicam que se trata de um VAR(1). Assim, usa-se p = 1.
+
+## Raíses
+
+```{r}
+roots(modelo.estima1, modulus = FALSE)
+roots(modelo.estima1)
+```
+
+
+## Estabilidade
+
+```{r}
+modelo.estabili = stability(modelo.estima1, type = "OLS-CUSUM")
+plot(modelo.estabili)
+```
+
+## Autocorrelacao
+
+```{r}
+layout(matrix(1:4, nrow = 2, ncol = 2))
+acf(residuals(modelo.estima1)[,1], main = "Livre")
+acf(residuals(modelo.estima1)[,2], main = "ADM")
+acf(residuals(modelo.estima1)[,3], main = "Cam")
+acf(residuals(modelo.estima1)[,4], main = "Juros")
+```
+
+
+## Estatistique des tests
+
+
+```{r}
+modelo.pt.asy = serial.test(modelo.estima1, lags.pt = 12, type = "PT.adjusted")
+plot(modelo.pt.asy)
+
+```
+
+
+## test de heterocedasticidade
+
+
+```{r}
+modelo.arch = arch.test(modelo.estima1, lags.single = 12, lags.multi = 8, 
+                        multivariate.only = FALSE)
+print(modelo.arch)
+```
+
+
+## Test de causalidade
+
+
+```{r}
+modelo.causal = causality(modelo.estima1, cause = c("Cam", "Juros"), 
+                          vcov. = vcovHC(modelo.estima1))
+print(modelo.causal)
+
+grangertest(Livres ~ Juros, order = 4, data = Dados1)
+grangertest(Livres ~ Cam, order = 4, data = Dados1)
+```
+
+## Funcao respostas impulsos
+
+
+```{r}
+modeloo.irf = irf(modelo.estima1, impulse = c("Cam", "Juros"),
+                  response = c("Livres"), boot = T, cumulative = F, n.ahead = 10)
+
+plot(modeloo.irf)
+```
+```{r}
+modeloo.irf = irf(modelo.estima1, impulse = c("Cam", "Juros"),
+                  response = c("Livres"), boot = T, cumulative = T, n.ahead = 10)
+
+plot(modeloo.irf)
+```
+
+
+
+

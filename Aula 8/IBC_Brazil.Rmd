@@ -1,0 +1,306 @@
+---
+title: "Indice d'Activité Économique (IBC)-Brazil"
+author: "Henri Makika"
+date: "May 8, 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction 
+
+L'IBC-Brazil est utilisé comme un paramètre pour évaluer le taux de croissance de l'économie brésilienne au fil des mois. L’indicateur exerce également une grande influence sur les estimations des marchés financiers concernant le produit intérieur brut (PIB) et le taux de Selic (taux directeur de la Banque Centrale du Brésil).
+
+L’indice d’activité économique de la Banque Centrale du Brésil (IBC-Br) est un indicateur créé pour tenter d’anticiper les résultats du produit intérieur brut (PIB) du pays, constituant un paramètre préliminaire de l’évolution de l’activité économique brésilienne. Le calcul de l'IBC-Br aide également l'autorité monétaire à définir l'objectif du taux d'intérêt de base de l'économie, le taux de Selic.
+
+L'objectif de ce papier est de montrer comment faire une prévision selon la méthodologie proposée par Box & Jenkins (1970). 
+
+
+## La méthodologie Box & Jenkins pour des séries temporelles 
+
+La construction du modèle de séries temporelles comprend :
+
+1. Identification: basée sur l'analyse d'autocorrélation, critères d'autocorrélation partielle et / ou d'information;
+
+2. Estimation: les paramètres de modèle identifiés sont estimés;
+
+3. Vérification du modèle ajusté: à travers une analyse de résidus, il est vérifié s'il convient aux fins visées, dans le cas, pour les prévisions.
+
+Nous importons ici les packages nécessaires pour l'analyse de nos données : 
+
+```{r message=FALSE, warning=FALSE}
+library(forecast) # Para ajuste e previsão do modelo ARIMA
+library(lmtest) # Por test de hipótese
+library(FinTS) # Para o test de heterocedasticidade
+library(urca) # Por test de Raiz Unitária
+library(tseries) # Para fazer o test de normalidade 
+library(TSA) # Test de lag
+library(readxl)
+```
+
+## La lecture des données
+
+
+```{r }
+IBC_BRA <- read_excel("~/Videos/Unicamp_IE 2019/HO:236A Times Series/Aula 8/IBC_BR.xlsx")
+ibc = ts(IBC_BRA[,2], start = c(2003, 1), frequency = 12)
+```
+
+## Identification du modèle d'analyse
+
+### Méthode graphique
+```{r}
+par(mfrow = c(1, 2))
+plot(ibc, main = "Indice d'activité économique", ylab = "IBC_BRA", 
+     xlab = "Mois")
+acf(ibc, lag.max = 20, drop.lag.0 = TRUE)
+```
+
+## Test de Dickey Fuller Augmented (ADF)
+
+Le test veut savoir si la série est stationnaire ou pas.
+```{r}
+df1 <- ur.df(ibc, type = "trend", lags = 12)
+plot(df1)
+summary(df1)
+```
+
+Au regard de nos graphiques d'autocorrelation et d'autocorrelation partielle, nous remarquons que la série est stationnaire. 
+```{r}
+df10 = ur.df(ibc, type = "trend", lags = 12, selectlags = "BIC")
+plot(df10)
+summary(df10)
+```
+
+```{r}
+df2 = ur.df(ibc, type = "drift", lags = 12, selectlags = "BIC")
+plot(df2)
+summary(df2)
+```
+
+Ainsi, on peut donc conclure que notre série est stationnaire. On remarque aussi que toutes nos variables sont significatives au seuil de 1%, 5% et 10%.
+
+## Identification du type et de l'ordre du modèle (FACF et PACF)
+```{r}
+par(mfrow = c(1, 2))
+acf(ibc, type = "correlation", lag.max = 20, drop.lag.0 = TRUE)
+acf(ibc, type = "partial", lag.max = 20, drop.lag.0 = TRUE)
+```
+
+L'analyse gráphique nous montre que le modèle à estimer est AR(1). 
+
+## Modèle ARIMA (1, 0, 0)
+```{r}
+model1 = Arima(ibc, order = c(1, 0, 0), method = "ML")
+summary(model1)
+```
+
+Nous pouvons se tromper dans le choix du modèle pour cela nous tentons d'estimer avec ARIMA (1, 0, 1) avec degré d'intégration zéro. Nous allons enfin comparer les deux résultats et voir si notre choix a été correct. 
+```{r}
+model2 <- Arima(ibc, order = c(1, 0, 1), method = "ML")
+summary(model2)
+```
+
+La différence entre coefficients n'est pas assez considérable entre le modèle 1 et le modèle 2, nous pouvons toute fois opter pour le modèle 1.
+
+Toute fois, nous allons faire la vérification de tests statistiques pour voir la robustesse des coefficients. 
+
+## Significance statistique
+```{r}
+fit1 = coeftest(model1)
+print(fit1)
+```
+
+Les coefficients du modèle 1 sont statistiquement significatif. Voyons alors ceux du modèle 2. 
+```{r}
+fit2 <- coeftest(model2)
+print(fit2)
+```
+
+Notre modèle ARIMA (1, 0, 1) est aussi statistiquement significatif. En effet, tous les coefficients du modèle sont statistiquements significatifs. Nous passons à present aux tests d'autocorrelation des erreurs ou résiduels.
+
+## Test d'autocorrelation résiduelle
+```{r}
+par(mfrow = c(1, 2))
+acf(model1$residuals, drop.lag.0 = TRUE)
+acf(model2$residuals, drop.lag.0 = TRUE)
+```
+
+## Test de Box-Pierce (1970) ou test de Ljung-Box (1978)
+
+La statistique Q de Box-Pierce (1970) ou celle modifiée par Ljung-Box (1978) vérifie si les k premiers coefficients d'autocorrélations sont statistiquement égales à zéro:
+```{r}
+Box.test(model1$residuals, lag = 4, type = "Box-Pierce", fitdf = 1)
+Box.test(model1$residuals, lag = 8, type = "Box-Pierce", fitdf = 1)
+Box.test(model1$residuals, lag = 12, type = "Box-Pierce", fitdf = 1)
+```
+
+Le test de Box & Pierce nous dit que, pour le modèle 1, les coefficients ne sont pas pas statistiquement égales à zéro. Dans ce cas nous rejetons l'hypothèse nulle. 
+
+## Test de Ljung & Box
+```{r}
+Box.test(model1$residuals, lag = 4, type = "Ljung-Box", fitdf = 1)
+Box.test(model1$residuals, lag = 8, type = "Ljung-Box", fitdf = 1)
+Box.test(model1$residuals, lag = 12, type = "Ljung-Box", fitdf = 1)
+```
+
+Même interprétation pour le test de Ljung & Box.
+
+## Analyse gráphique du test (p-valor) 
+```{r}
+tsdiag(model1, gof.lag = 20)
+```
+
+## Test de Ljung & Box pour le modèle 2
+```{r}
+Box.test(model2$residuals, lag = 4, type = "Ljung-Box", fitdf = 2)
+Box.test(model2$residuals, lag = 8, type = "Ljung-Box", fitdf = 2)
+Box.test(model2$residuals, lag = 12, type = "Ljung-Box", fitdf = 2)
+```
+
+Avec lag = 12, les coefficients du modèle sont statistiquement significatif, au regard du p-valor qui est supérieur au seuil de 5%. Voyons l'analyse graphique du modèle : 
+```{r}
+tsdiag(model2, gof.lag = 20)
+```
+
+## Test de normalité des résidus 
+
+Nous utilisons ici deux tests : Jarque-Bera & Shapiro-Wilk (1965).
+
+1. Test de Jarque-Bera: 
+Ce test est logiquement utilisé pour les grands échantillons.
+
+Le test de Jarque-Bera (JB) analyse si les moments de la série estimée (dans ce cas, les résidus) sont les mêmes que la normale. Dans cette hypothèse, l'asymétrie est égale à zéro et le kurtosis est égal à 3.
+
+2. Test Shapiro-Wilk (1965): 
+Peut être utilisé pour des échantillons de n'importe quelle taille.
+
+Le test est basé sur le calcul de la statistique W qui vérifie si un échantillon aléatoire de taille *n* provient d'une distribution normale.
+```{r}
+par(mfrow = c(1, 2))
+hist(model1$residuals)
+plot(density(model1$residuals, kernel = "gaussian"))
+```
+
+Nous doutons de la normalité de la série. Voyons avec les tests de Jarque-Bera et de Shapiro-Wilk.
+
+```{r}
+jarque.bera.test(model1$residuals)
+shapiro.test(model1$residuals)
+```
+
+L'analyse gráphique, le test de Jarque-Bera et celui de Shapiro-Wilk nous disent que les résidus ne suivent pas une loi normale. 
+
+## Test d'hétéroscédasticité conditionnelle ou Homocédasticité (ARCH-LM)
+```{r}
+ArchTest(model1$residuals, lags = 4)
+ArchTest(model1$residuals, lags = 8)
+ArchTest(model1$residuals, lags = 12)
+```
+
+La statistique du modèle n'est pas significative pour lag = 4 = 8 = 12. Nous passons au modèle 2.
+```{r}
+ArchTest(model2$residuals, lag = 4)
+ArchTest(model2$residuals, lag = 8)
+ArchTest(model2$residuals, lag = 12)
+```
+
+Même interprétation pour le modèle 2. Notre série n'est toujours pas bonne pour faire la prévision, ainsi, tous les résultats des différents tests ne nous satisfont pas pour prévoir la série. Quand à cela, nous passons à la trasformation de Box-Cox avant de faire la prévision de la série. 
+
+## Transformation de Box & Cox
+
+Les Raisons pour transformer les données: stabiliser la variance et rendre additif l'effet saisonnier.
+
+Dans le cas des séries économiques et financières, il peut être nécessaire d'appliquer à la série d'origine une transformation non linéaire, telle que la transformation logarithmique ou celle proposée par Box-Cox (1964).
+```{r}
+lambda <- BoxCox.lambda(ibc)
+print(lambda)
+```
+
+Nous commençons avec le modèle ARIMA (1, 0, 0) puis on va terminer avec ARIMA (1, 0, 1).
+
+### Modèle ARIMA (1, 0, 0) ou AR(1)
+```{r}
+model3 <- Arima(ibc, order = c(1, 0, 0), method = "ML", lambda = lambda)
+summary(model3)
+```
+
+### Modèle ARIMA (1, 0, 1) ou ARMA (1,1)
+```{r}
+model4 <- Arima(ibc, order = c(1, 0, 1), method = "ML", lambda = lambda)
+summary(model4)
+```
+
+Nous allons à présent vérifier si lequel des deux modèles est meilleur pour faire la prévision. Pour ainsi, nous allons vérifier les coefficients de chaque modèle s'ils sont significatifs ou non après la transformation de Box_Cox.
+```{r}
+fit3 <- coeftest(model3)
+print(fit3)
+fit4 <- coeftest(model4)
+print(fit4)
+```
+
+Les coefficients de nos deux modèles sont statistiquement significatif. Vérifions aussi à l'aide du graphique de p-valor de Ljung-Box.
+```{r}
+tsdiag(model3, gof.lag = 20)
+tsdiag(model4, gof.lag = 20)
+```
+
+Il y a une amélioration après la transformation de Box & Cox. Nous pouvons encore vérifier à l'aide de test de normalité des résidus.
+```{r}
+par(mfrow = c(1, 2))
+hist(model3$residuals)
+plot(density(model3$residuals, kernel = "gaussian"))
+```
+```{r}
+jarque.bera.test(model3$residuals)
+shapiro.test(model3$residuals)
+```
+```{r}
+par(mfrow = c(1, 2))
+hist(model4$residuals)
+plot(density(model4$residuals, kernel = "gaussian"))
+```
+
+Nous remarquons que après transformation notre série s'est améliorée. 
+```{r}
+jarque.bera.test(model4$residuals)
+shapiro.test(model4$residuals)
+```
+
+## Test d'hétéroscédasticité conditionnelle
+
+### Modèle 3
+```{r}
+ArchTest(model3$residuals, lag = 4)
+ArchTest(model3$residuals, lag = 8)
+ArchTest(model3$residuals, lag = 12)
+```
+
+### Modèle 4
+```{r}
+ArchTest(model4$residuals, lag = 4)
+ArchTest(model4$residuals, lag = 8)
+ArchTest(model4$residuals, lag = 12)
+```
+
+Avant de passer à la décision sur le modèle à estimer, nous devons tout d'abord effectuer un choix du modèle. Pour cela, les critères AIC & BIC nous permettrons de le réaliser. Il s'agit d'effectuer AIC et BIC le plus bas possible entre les deux modèle c'est à dire le modèle 3 ou 4 que nous avons transformés. 
+```{r}
+AIC(model3, model4)
+BIC(model3, model4)
+```
+
+Nous choisirons le modèle 4 ou soit ARIMA (1, 0, 1) puisque AIC et BIC sont inférieur au modèle 3. Ainsi, la prévision sera réalisé à partir du modèle 4. 
+
+## Prévision 
+```{r}
+prev = forecast(model4, h = 6, level = c(0.90, 0.95), lambda = lambda, 
+                biasadj = FALSE)
+print(prev)
+```
+```{r}
+par(mfrow = c(1, 1))
+plot(prev)
+```
+

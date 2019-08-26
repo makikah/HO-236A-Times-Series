@@ -1,0 +1,403 @@
+---
+title: |
+  |
+  | State University of Campinas - UNICAMP  
+  |
+  |
+  |
+  | **Time Series Analysis**
+  |
+  | The vector autoregressions model (Essai)
+  |
+  |
+  | Supervisor: Rosangela Balini
+  |
+  |
+author: |
+  | ------------------------------------------------
+  | Henri Makika (211042)
+  | ------------------------------------------------
+
+
+date: "Julho 7, 2019"
+output: pdf_document
+---
+
+\begin{center}
+\includegraphics[width=50mm]{logo-unicamp-name-line-blk-red-0240.eps}
+\end{center}
+
+
+\newpage 
+
+\tableofcontents
+
+\newpage
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.height = 10, fig.width = 6, message = FALSE
+)
+```
+
+## 1 Introduction
+
+La crise financière de 2008 a causé plus d'une victime. Demandez aux gens quelle est selon eux la cause principale de cette crise, la plupart vous répondront que c’est la déréglementation des institutions financières qui a mené à une faillite du marché.
+
+Quand vous leur demandez ensuite quelle réglementation au juste est en cause, ils vous répondent alors bêtement que c’est l’abolition en 1999 du *Glass Steagall Act*, permettant aux banques de combiner leurs activités de marché des capitaux avec leurs activités bancaires au détail. La théorie veut que cette abolition permettait aux banques d’utiliser des dépôts bancaires de particuliers pour spéculer sur les marchés financiers.
+
+Et pourtant, l'examen de fait montre que c'est du vent. Le cœur du problème est la politique monétaire et la structure anti capitaliste du système bancaire. Entre le 1er janvier 2001 et le 31 décembre 2007, la masse monétaire (M2) a crû de $51.4 \%$ soit de $6.1 \%$ par année alors qu’au cours de cette période, la croissance moyenne du PIB réel n’a été que de $2.4 \%$. La *Federal Reserve* a orchestré une baisse massive des taux d’intérêt, qui a stimulé l’endettement et engendré d’énormes distorsions dans l’économie et pas seulement dans le prix des maisons garantissant des hypothèques subprimes, mais bien dans presque tous les actifs, incluant l’immobilier commercial, la bourse, l’énergie, les métaux, etc.
+
+C’est ce boum de crédit qui a engendré cette bulle, tout comme pratiquement toutes les bulles de l’histoire de l’humanité. C’est ça la cause sous-jacente. Et cette bulle n’était pas seulement immobilière, elle était généralisée, comme celle qui a implosé en 1929.
+
+Nous analysons dans le présent travail, si réellement un choc de politique monétaire affecte les variables macroéconomiques. Nous considérons quatre variables dont, la masse monétaire (M2), le taux d'intérêt (Juros) comme variables d'intérêt et nous augmentons notre analyse avec deux autres variables de contrôle, Prix de biens de consommation (Precos) et le taux de chômage (Unem). Pour ainsi, nous considérons le modèle VAR irrestricte pour tirer les résultats de l'estimation. Nous avons considérés les données mensuelles américaines de 2000 à 2007 (non désaisonnalisées).  
+
+## 2 Modèle VAR 
+
+### 2.1 Spécification du modèle
+
+La spécification de référence du modèle VAR comprend les quatre variables suivantes: 
+
+i. *La masse monétaire* (M2): est la moyenne pondérée des taux reçus sur les actifs inclus dans les dépôts de moindre durée M2 (dépôts à court et moyen terme).
+
+ii. *Le taux d'intérêt* (Juros) : Le taux des fonds fédéraux est le taux d’intérêt auquel les fonds de dépôt fédéraux sont détenus les uns avec les autres au jour le jour. Lorsqu'un établissement de dépôt a des soldes excédentaires dans son compte de réserve, il prête à d'autres banques ayant besoin de soldes plus importants. En termes plus simples, une banque ayant un excédent de trésorerie, souvent appelé liquidité, prête à une autre banque ayant besoin de lever rapidement des liquidités. (1) Le taux que l'institution emprunteuse paie à l'institution prêteuse est déterminé entre les deux banques; (2) Le taux effectif des fonds fédéraux est essentiellement déterminé par le marché, mais est influencé par la Réserve fédérale par le biais d'opérations d'open market pour atteindre le taux des fonds fédéraux cible. 
+
+iii. *Prix de biens de consommation*(Precos) : Indice des prix à la consommation pour tous les consommateurs urbains.
+
+iv. *Le taux de chômage* (unem) : Le taux de chômage représente le nombre de chômeurs en pourcentage de la population active. Les données sur la population active sont limitées aux personnes âgées de 16 ans et plus, résidant actuellement dans l'un des 50 États du district fédéral de Columbia, qui ne résident pas dans des institutions (par exemple, des installations pénales et mentales, des foyers pour personnes âgées) qui ne sont pas en service actif dans les forces armées. 
+
+Le VAR sous forme réduite est défini par l'équation dynamique suivante:
+
+$$X_{t} = B(L) X_{t-1} + U_{t},$$
+
+où $X_{t}$ est le vecteur de variables, $B(L)$ est l'opérateur retard polynomial autorégressif et le vecteur d'innovations sous forme réduite. Notre spécification de référence comprend une tendance temporelle constante et linéaire (étant donné que les variables ne sont pas désaisonnalisées, nous avons inclus la différence pour les désaisonnaliser), que nous omettons de la notation pour des raisons de commodité.
+
+### 2.2 Estimation du modèle VAR
+
+Le modèle $VAR(p)$ général comporte de nombreux paramètres, qui peuvent être difficiles à interpréter en raison d’interactions complexes et de rétroaction entre les variables du modèle. En conséquence, les propriétés dynamiques d'un $VAR(p)$ sont souvent résumées à l'aide de divers types d'analyses structurelles. Les trois principaux types de résumés d'analyse structurelle sont: (i) les tests de causalité de Granger; (ii) fonctions de réponse impulsionnelle; et (iii) les décompositions de la variance d'erreur de prévision. 
+
+Pour arriver à ces propriétés, techniquement plusieurs tests économétriques devront être imprégnés avant de tirer conclusion de l'analyse qu'on veut effectuer. Sur base des données américaines, nous faisons pas pour pas tout les tests économétriques possibles pour notre analyse.  
+
+```{r}
+library(readxl)   # Pour lire les données xlsx (données Excel)
+library(vars)     # Pour l'estimation du modèle VAR et choix du modèle
+library(urca)     # Pour réaliser le test de racines unitaires (KPSS, ERS,...)
+library(lmtest)   # Pour les tests d'hypothès de normalité
+library(MASS)     # Pour les tests statistiques
+library(caret)    # Pour créer dummies variables
+```
+
+## 3 Analyse économétrique du modèle VAR
+
+Nous présentons dans cette section l'analyse statistique et économétrique des séries considérées dans un modèle VAR irrestricte. L'objectif de cette section est de montrer tout les tests statistiques et les raisons pour lesquelles on choisit ce type de tests pour l'analyse. Pour réduire le nombre des pages, nous n'allons pas présenter les commandes de RStudio dans notre analyse mais l'archive des commandes sera envoyé ensemble avec ce travail. 
+
+```{r}
+Donnee = read_excel("~/Videos/Unicamp_IE 2019/HO:236A Times Series/Ensaio/Dados_USA.xls")
+Dados = ts(Donnee[,2:5], start = c(2000, 1), end = c(2007, 12), frequency = 12)
+head(Dados)
+```
+
+### 3.1 Représentation graphique des données 
+
+Les données américaines sur la masse monétaire, le taux d'intérêt, les prix de biens de consommation et le taux de chômage sont tirées de la base de données de la FRED (Federal Reserve Economic Data). Ces sont les données mensuelles non désaisonnalisées, allant de janvier 2000 à décembre 2007. nous analysons le choc du taux d'intérêt sur la masse monétaire, le prix de biens de consommation et l'emploi. 
+
+Les séries sont représentées en première différence pour minimiser l'effet saisonnelle. Les variables taux d'entérêt et prix des biens de consommation ont plus d'une racine, pour se faire nous avons considéré le logarithme naturel pour stabiliser le système (test de racine unitaire). 
+```{r}
+layout(matrix(1:4, nrow = 2, ncol = 2))
+
+plot.ts(diff(Dados[,1]), main = "Masse monétaire M2", ylab = "M2 USA", xlab = "")
+grid()
+plot.ts(diff(Dados[,2]), main = "Taux d'intérêt", ylab = "Rate USA", xlab = "")
+grid()
+plot.ts(diff(Dados[,3]), main = "Prix urbain", ylab = "Prix USA", xlab = "")
+grid()
+plot.ts(diff(Dados[,4]), main = "Taux de chômage", ylab = "Chômage", xlab = "")
+grid()
+```
+
+### 3.2 Ordre et Estimation du modèle VAR
+
+Nous appliquons la méthode des moindres carrés ordinaires pour chaque équation du
+modèle; cela implique que le nombre de variables dans toutes les équations doit être
+égal. 
+```{r}
+Dados1 = log(Dados[,1:4])
+
+ordre = VARselect((diff(log(Dados[,1:4]))), lag.max = 8, type = "const")
+
+ordre
+
+modele.est12 = VAR((diff(Dados1[,1:4])), type = "const", p = 1)
+                   
+#summary(modele.est12)
+```
+Le choix du nombre de retards est effectué sur la base de la fonction d’autocorrélation des résidus VAR sous forme réduite et des tests du rapport de vraisemblance. La fonction $VARselect$ nous indique que le modèle à estimer est $VAR(1)$. Choisissez l’ordre $p$ qui minimise la formule générale du critère d'information (AIC, HQ, SC, FPE). Il sied de noter que, le critère $FPE$ fournit une mesure de la qualité du modèle à travers des ajustements de modèles avec des ordres différents. 
+
+Le nombre de décalages est fixé à 8, car il fournit des résidus en série non corrélés. Les résidus ne présentent aucun signe d'effet ARCH. C'est à dire pas d'hétéroscédasticité, l'hypothèse nulle d'homoscédasticité ne peut pas être rejetée (voir le test d'hétéroscédasticité). 
+
+### 3.3 Racines
+
+```{r}
+roots(modele.est12, modulus = FALSE)
+roots(modele.est12, modulus = TRUE)
+```
+
+Étant donné que les racines sont inférieures à l'unité en valeur absolue, nous pouvons conclure que le modèle est stable. 
+
+
+### 3.4 Stabilité du modèle
+
+On utilise les opérateurs de retard pour réécrire les équations du modèle VAR(1) pour notre regréssion. Le critère de convergence exige que les racines soient à l'extérieur du cercle unitaire (voir le point 3.3 ci-dessus). 
+
+```{r}
+plot(stability(modele.est12, type = "OLS-CUSUM"))
+```
+
+Le corrélogramme des erreurs de chaque équation devriait être dans l'intérieur de l'intervalle de confiance. Et nous remarquons que cette règle est respectée pour notre modèle, c'est à dire que le modèle VAR(1) est stable.  
+
+
+### 3.5 Diagnostique de tests 
+
+i. Corrélation de série: test de Portmanteau, Breusch et Godfrey;
+ii. Hétéroscédasticité: test de ARCH;
+iii. Normalité: tests de Jarque et Bera, de Skewness et de Kurtosis;
+iv. Stabilité structurelle: tests de EFP, CUSUM, CUSUM-of-Squares, Test de fluctuation, etc.
+
+#### 3.5.1 Tests de Corrélation sériale
+
+L'objectif du test est de vérifier si les autocorrélations multivariées sont nulles (test de Portmanteau). L'hypothèse nulle est $H_0: E(\mu_t \mu_{t-j}') = 0,$ où $j = 1, 2,...,J > p$ et l'hypothèse alternative est $H_0: E(\mu_t \mu_{t-j}') \neq 0,$ où $j = 1, 2,...,J > p$. 
+
+La statistique du test sert à vérifier si les autocorrélations et les corrélations croisées ne sont pas significatives, pour un niveau de signification donné.
+
+Pour notre analyse, nous ne rejetons pas l'hypothèse nulle car les autocorrelations multivariées sont nulles. 
+
+```{r}
+var.serial = serial.test(modele.est12)
+print(var.serial)
+```
+
+##### i. Test de Ljung-Box *PT-adjusted*
+
+Au seul statistique de $10 \%$, nous ne rejetons l'hypothèse nulle. 
+
+```{r}
+var.pt.adj = serial.test(modele.est12, lags.pt = 10, type = "PT.adjusted")
+print(var.pt.adj)
+```
+
+##### ii. Test de Ljung-Box *PT-asymptotic*
+
+De même, au seul statistique de $10 \%$, nous ne rejetons l'hypothèse nulle.
+
+```{r}
+var.pt.adj = serial.test(modele.est12, lags.pt = 10, type = "PT.asymptotic")
+print(var.pt.adj)
+```
+
+#### 3.5.2 Test d'hétéroscédasticité
+
+L'objectif du test est de faire l'analyse de l'hétéroscédasticité conditionnelle. L'hypothèse nulle est donnée pour $H_{0}: \beta_{1} = \beta_{2} = ... = \beta_{h} = 0$ et l'hypothèse alternative est $H_{0}: \beta_{1} \neq \beta_{2} \neq ... \neq \beta_{h} \neq 0$. 
+
+Ne pas rejeter l'hypothèse nulle signifie donc l'absence d'hétéroscédasticité, c'est à dire la présence d'homoscédasticité. Pour notre cas, nous ne rejetons donc pas l'hypothèse nulle, cela signifie que la variance des erreurs est homoscédastique.  
+
+```{r}
+var.arch = arch.test(modele.est12)
+print(var.arch)
+```
+
+#### 3.5.3 Test de normalité des résidus
+
+L'obectif du test est donc de réaliser test de Jarque-Bera multivarié. Il est donc question de choisir une factorisation des $n$ résidus qui sont orthogonaux les uns aux autres. Les étapes du test : (i) obtenir la matrice de covariance des résidus, (ii) calculer la racine carrée de la matrice (et pourtant, obtenir les autovaleurs. Pour ainsi, on (iii) utilise la décomposition de Cholesky qui dépend de l'ordre des variables).
+
+Le test de non-normalité est basé sur l'asymétrie et le kurtosis des résidus standardisés. L’hypothèse nulle du test est que les résidus sont normalement distribué. Il sied de souligner que le rejet de l'hypothèse nulle ne signifie pas l'interprétation et l'analyse des résultats, juste pour suggérer seulement de la prudence. La non-normalité des résidus dans les analyses de séries macroéconomiques est courante dans les études conduisant au test de Jarque-Bera. 
+
+Dans le cas de notre analyse, en considérant le test univarié de Jarque-Bera, les variables *masse monétaire* et *taux d'intérêt* l'hypothèse nulle de normalité résiduelle est rejetée. Car leurs statistiques ne sont donc pas significatives. C'est le contraire de deux autres variables *prix de biens* et *taux de chômage* dont on ne rejet pas l'hypothèse nulle de normalité des résidus. Mais lorsqu'on etand le raisonnement en bloc, on ne rejet pas non plus l'hypothèse nulle de normalité résiduelle.
+
+```{r}
+var.norm = normality.test(modele.est12, multivariate.only = FALSE)
+#print(var.norm)
+```
+
+#### 3.5.4 Test de stabilité structurelle
+
+L’un des moyens d’analyser la stabilité structurelle consiste à utiliser les diagrammes CUSUM (Cumulative Sum Control Chart). Le graphique de contrôle CUSUM est un outil statistique qui accumule les informations des échantillons d’un processus en les pesant de manière égale, c’est-à-dire que les échantillons ont le même poids. 
+
+Prenant un intervalle de confiance de 95% autour de zéro, les limites inférieure et supérieure sont données par:
+$$[- \frac{2}{\sqrt{T}}, \frac{2}{\sqrt{T}}],$$
+
+où $T$ est le nombre d'observation. Pour notre analyse, les diagrammes de CUSUM nous indique que la structure de la régression est stable. 
+
+```{r}
+reccusum.stab = stability(modele.est12, type = "Rec-CUSUM")
+plot(reccusum.stab)
+fluctuation.stab = stability(modele.est12, type = "fluctuation")
+plot(fluctuation.stab)
+```
+
+### 3.6 Changement de l'ordination des variables 
+
+L'objectif est donc d'appliquer la décomposition de *Cholesky*, qui dépend, en effet, de l'ordre des variables. 
+
+```{r}
+Dados2 = Dados[,c(2, 1, 3, 4)]
+modele.ord = VAR(diff(log(Dados2)), p = 1, type = "const")
+
+var.norm2 = normality.test(modele.ord, multivariate.only = FALSE)
+#print(var.norm2)
+```
+
+## 4 Prévision
+
+Le processus de prévision pour le modèle multivarié est égal au processus de modèle univarié. Pour ainsi, considérons le modèle $VAR(1)$ : 
+
+$$X_{t} = A_{0} + A_{1} X_{t-1} + \mu_{t}$$
+
+  La prévision pour l'année $t+1$ sera donnée pour : $E(X_{t+1}) = A_{0} + A_{1} X_{t}$, pour $t+2$ sera de : $E(X_{t+2}) = A_{0} + A_{1} E(X_{t+1})$ et pour l'année $t+h$ est $E(X_{t+h}) = A_{0} + A_{1} E(X_{t+h-1})$. 
+
+```{r}
+var.predict = predict(modele.est12, n.ahead = 10, ci = 0.95)
+plot(var.predict)
+fanchart(var.predict)
+```
+
+
+## 5 Causalité
+
+Juros *Granger-causa* M2, si la valeur de M2 dans $t$ peut être prédite plus précisément que si les valeurs passées de Juros sont considérées, en plus des valeurs passées de M2.
+
+Mais si le scalaire de Juros ne peut pas causer le scalaire de M2, alors on conclut que Juros non *Granger-causa* M2. On utilise le test F conventionnel, valable, lorsque les coefficients d'intérêt peuvent être écrits afin de multiplier des variables stationnaires.
+
+En considérant le système sous forme réduite, les hypothèses de test de causalité de Granger se présentent comme : $H_{0} : a_{21,1} = a_{21,2} =...=a_{21,p} = 0$ et $H_{1} : a_{21,1} \neq a_{21,2} \neq...\neq a_{21,i} \neq 0$ pour quelques $i = 1, 2,..,p$. Et que la statistique F est donnée pour :
+
+$$F = \frac{(\hat{e}_{r}^{2} - \hat{e}_{\mu}^{2})/p}{\hat{e}_{\mu}^{2}/(T-2p-1)} \mapsto F(p, T-2p-1),$$
+
+où $\hat{e}_{r}, \hat{e}_{\mu}$ sont des résidus du modèle restricte et irrestricte. Si $F > F_{c}$ alors on rejete l'hypothese nulle, Juros ne cause pas M2 au sens de Granger. 
+
+Il est nécessaire de noter que : le test de causalité de Granger n’est pas le même que le test de exogénéité. De manière générale, pour que $z_t$ soit exogène à $y_t$, il est nécessaire que $z_t$ ne soit pas simultanément affecté par $y_t$. La forme réduite du VAR ne permet pas ce type de test. Le test de causalité de Granger inclut les valeurs actuelles et passées de $y_t$ sur $z_t$. 
+
+```{r}
+grangertest(diff(log(M2)) ~ diff(log(Precos)), data = Dados2)
+```
+
+```{r}
+grangertest(diff(log(Juros)) ~ diff(log(Precos)), data = Dados2)
+```
+
+À court terme, le taux d'intérêt a un effet positif sur la masse monétaire. Un choc aléatoire sur le taux d'intérêt à un effet direct sur la masse monétaire. En considérant un retard sur les variables taux d'intérêt et masse monétaire, le test de Granger nous confirme de ne pas rejeter l'hypothèse nulle. 
+
+```{r}
+var.cause = causality(modele.est12, cause = c("M2", "Precos", "Unem"))
+var.cause
+```
+
+Le test robuste de causalité
+
+```{r}
+var.cause1 = causality(modele.est12, cause = c("M2", "Precos", "Unem"),
+                       vcov. = vcovHC(modele.est12))
+var.cause1
+```
+
+Au regard de test de causalité au sens de Granger, nous pouvons conclure que le taux d'intérêt cause l'augmentation de la masse masse monétaire, du prix de biens de consommation et une baisse du taux de chômage pendant la période considérée. Mais toute fois nous restons prudent à l'interprétation des variables de contrôles, étant donné que le taux d'intérêt considéré dans cette analyse est le taux des fonds fédéraux qui est le taux d’intérêt auquel les fonds de dépôt fédéraux sont détenus les uns avec les autres au jour le jour. C'est différent du taux directeur de la banque centrale américaine, bien que ce taux dépend directement du taux directeur. Nous l'avons utilisé ici comme un proxy. Il peut avoir une relation directe avec la masse monétaire mais pas nécessairement avec le prix et le chômage, la prudence exige dans l'interprétation. Autre chose, travailler avec les données américaines reste délicate puisque les définitions de certains termes diffèrent de la connaissance générale que nous avons.  
+
+  ## 6 Fonction impulse response, IRF
+
+La fonction de réponse impulsionnelle représente le mécanisme de transmission des chocs aléatoires. Un choc aléatoire sur une variable (impulsion) va provoquer un changement (réponse) sur les autres variables du modèle. 
+
+La fonction de réponse impulsionnelle décrit l'impact d'un choc fini sur une variable donnée dans le temps. Elle dépend de l'ordre des variables (voir le point 3.6. C'est ce qu'on appelle la décomposition de *Cholesky*). 
+
+La fonction de réponse impulsionnelle est calculée à l'aide de coefficients estimés. Un intervalle de confiance doit être pris en compte dans ces estimations. De ce fait, cette plage peut être calculée analytiquement ou par des méthodes d’expériences de Monte Carlo(voir par exemple, Hamilton, 1994 et Lutkerpoh, 2005).
+
+```{r}
+var.irf1 = irf(modele.est12, impulse = "Juros", response = c("M2", "Precos", "Unem"),
+              ortho = FALSE, cumulative = FALSE, boot = TRUE, seed = 12345)
+var.irf2 = irf(modele.est12, impulse = "Juros", response = c("M2", "Precos", "Unem"),
+              ortho = FALSE, cumulative = TRUE, boot = TRUE, seed = 12345)
+par(mfrow = c(2, 1))
+plot(var.irf1)
+plot(var.irf2)
+```
+
+La cause essentielle de cette crise provient en effet de l’extraordinaire variabilité de la politique monétaire américaine au cours de la période considérée. Or, celle-ci est bien évidemment décidée par des autorités publiques. C’est ainsi que la Fed est passée d’un taux d’intérêt de $6.5 \%$ en 2000 (voir graphique au dessus) à un taux de $1.75 \%$ fin 2001 et $1 \%$ en 2003. Il y eut ensuite une lente remontée à partir de 2004 jusqu’à atteindre $4.5 \%$ en 2006. Pendant toute la période de bas taux d’intérêt et de crédit facile, le monde a été submergé de liquidités. Afin de profiter de cette magnifique occasion de profits faciles, les établissements financiers ont accordé des crédits à des emprunteurs de moins en moins fiables, comme l’a montré la crise des *subprimes*. Lorsque l’on est revenu à des taux d’intérêt plus normaux, les excès du passé sont apparus au grand jour : c’est l’éclatement de la *bulle financière*. Le graphiqe de la fonction de réponse impulsionnelle nous le demontre parfaitement. Un choc du taux d'intérêt a augmenté la masse monétaire pendant la période considérée.  
+
+## 7 Décomposition de la variance d'erreur prévue, FEVD
+
+L'objectif est de déterminer le pourcentage de la variance de l'erreur de prévision qui
+dérive de chaque variable endogène le long de l'horizon de prévision. La décomposition de la variance d'erreur prévue indique la part avec laquelle chaque choc contribue à la variation d'une certaine variable dans le temps. Cela dépend aussi de l'ordre des variables. 
+
+```{r}
+var.fevd = fevd(modele.est12, n.ahead = 12)
+plot(var.fevd)
+```
+
+## Conclusion
+
+Notre objectif dans ce travail a été de vérifier si la politique monétaire qui avait été la cause de la crise financière de 2008. Pour ce, nous avons considéré quatre variables macroéconomiques pour analyser ce phénomène en utilisant le modèle VAR dans notre analyse. Les résultats ont montrés qu'un choc sur le taux d'intérêt avait provoqué une augmentation de la masse monétaire. Mais aussi la baisse du taux d'intérêt a provoqué l'augmentation d crédit bancaire qui, une fois que le taux a augmenté cela a provoquer une pénurie de crédit. 
+Quand à la spécification du modèle utilisé, les résidus n'ont présentés aucun signe d'effet ARCH. C'est à dire que l'hypothèse nulle d'homoscédasticité ne peut pas être rejetée (voir le test d'hétéroscédasticité). Comme c'est beaucoup récurent en utilisant les données macroéconomiques, la normalité résiduelle n'a été vérifié que pour deux variables et les deux autres n'ont pas été. Pour perfectionner notre connaissance, d'autres spécifications seront imprégnées dans un futur proche pour améliorer les problèmes non traités par la modélisation VAR. Le message que nous voulions deduire de la presente etude n'est pas aussi net que nous le souhaiterions mais il est tres important de souligner que les etudes anterieures sur ce sujet n'ont jamais permis de degager des evidences indiscutables.
+
+Historiquement, les réactions des autorités monétaires et gouvernementales aux variables de condition économique ainsi que leur politique économique de stabilisation n'ont jamais été suffisamment coordonnées et importantes pour permettre d'en rendre compte statisquement de façon indiscutable, ce qui, du point de vue de l'économiste, n'invalide certainement pas la discussion, même controversée du problème de la stabilisation macroéconomique (Gordon, 1977). Par ailleurs, malgré la sévérite du test appliqué et l'objet même de son application, certaines relations statistiques demeurent. Ainsi donc, nous croyons que les conclusions tirées représentent la confirmation, par les techniques empiriques, de l'existence de relations economiques. L'utilisation d'autres techniques (modèles) devient alors intéressante afin de déceler quelles relations defieraient les doutes les plus hérétiques.
+
+# Bibliographie
+
+1. Algan, Y., Cahuc, P., Zylberberg, A., 2002. Public employment and labour market performance. *Economic Policy* 1, 9–65.
+
+2. Biau, O., Girard, E., 2005. Politique budgétaire et dynamique économique en France: l'approche VAR structurel. *Économie et Prévision* 169–171, 1–24.
+
+3. Blanchard, O., Perotti, R., 2002. An empirical characterization of the dynamic effects of changes in government spending and taxes on output. *Quarterly Journal of Economics* 117, 1329–1368.
+
+4. Bueno, R. L. S. Econometria de Séries Temporais, 2a. Edição, *Cengage Learning*, 2011. Cap. 6.
+
+5. De Castro Fernández, F., Hernández de Cos, P., 2006. The economic effects of exogenous fiscal shocks in Spain: a SVAR approach. ECB Working Paper, vol. 647. *European Central Bank*, Frankfurt.
+
+6. Galí, J., López-Salido, D., Vallés, J., in press. Understanding the effects of government spending on consumption. *Journal of the European Economic Association*, March 2007 issue (forthcoming).
+
+7. John B. Taylor, 2008. The Financial Crisis and the Policy Responses: An Empirical Analysis of What Went Wrong. Novembre, www.stanford.edu/~johntayl/FCPR.pdf.
+
+8. Lütkepohl, H., Saikkonen, P., Trenkler, C., 2001. Maximum eigenvalue versus trace tests for the cointegrating rank of a VAR process. *Econometrics Journal* 4, 287–310.
+
+9. Sims, C.A., Zha, T., 1999. Error bands for impulse responses. *Econometrica* 67, 1113–1155.
+
+10. Stock, J.H., Watson, M.W., 2001. Vector autoregressions. *Journal of Economic Perspectives* 15, 101–115.
+
+# Annexe
+
+### A1 : Graphique des autocorrélations
+
+```{r}
+layout(matrix(1:4, nrow = 2, ncol = 2))
+
+acf(residuals(modele.est12)[,1], main = "Masse monétaire")
+acf(residuals(modele.est12)[,2], main = "Taux d'intérêt")
+acf(residuals(modele.est12)[,3], main = "Prix urbain")
+acf(residuals(modele.est12)[,4], main = "Taux de chômage")
+```
+
+### A2 : Prévision
+
+```{r}
+var.predict
+```
+
+### A3 : Fonction impulse response
+
+#### IRF 1
+
+```{r}
+var.irf1
+```
+
+#### IRF 2
+
+```{r}
+var.irf2
+```
+
+
+
+### A4 : Décomposition de la Variance d'erreur prévue
+
+
+```{r}
+var.fevd
+```
+
+

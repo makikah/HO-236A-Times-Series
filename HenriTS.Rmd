@@ -1,0 +1,74 @@
+---
+title: "Croissance du Produit Intérieur Brut par habitant au Brésil"
+author: "Henri Makika"
+date: "May 6, 2019"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE,
+                      fig.width = 10, fig.height = 6)
+```
+
+## Produit Intérieur Brut per capita et ses Composantes
+
+Nous proposons dans cette analyse l'évolution du produit intérieur brut par habitant du Brésil sur la période allant de 1870 à 2016 avec des données annualisées. Nous proposons également l'évolution des principales composantes du produit intérieur brut per capita ainsi que les résultats de tests économétriques de modèles estimés. Ces composantes sont la productivité totale des facteurs (PTF), l'intensité du capital (IK), la productivité du travail (LP), le taux d'emploi (Lhab) et l'âge (Age).
+```{r }
+library(readxl)
+library(xts)
+```
+
+## Analyse graphique des données
+
+Par définition, la productivité globale (ou totale) des facteurs est le rapport entre le PIB (Y) et une fonction d'agrégation notée F(.) où deux facteurs de production considérés, capital (K) et travail (L) : PTF = Y/F(K, L). C'est donc l'accroissement relatif de richesse qui n'est pas expliqué par l'accroissement d'un usage de ces deux facteurs dont capital et travail.
+
+```{r }
+dados_bra <- as.data.frame(read_excel("TSBRA.xlsx"))
+startDate <- dados_bra[1,1] # extrair datas da primeira coluna
+endDate <- dados_bra[nrow(dados_bra), 1]
+startDate
+endDate
+```
+
+## Création des séries temporelles en format XTS
+
+```{r}
+xts_bra <- xts(dados_bra[,-1], order.by = as.yearmon(dados_bra[,1]))
+head(xts_bra)
+```
+
+Nous remarquons que notre base des données n'est pas complète, il y a plusieurs NA.
+
+## Visualisation des données
+
+```{r}
+plot(xts_bra)
+```
+
+## Visualisation séparée pour chaque composante
+
+```{r}
+layout(matrix(1:4, nrow = 2, ncol = 2))
+plot(xts_bra$LP)
+plot(xts_bra$PTF)
+plot(xts_bra$PIBpc)
+plot(xts_bra$Age)
+```
+
+## Visaulisation groupée pour toutes les variables 
+
+```{r}
+plot(xts_bra[, c("LP", "PTF", "IK", "Age")]) 
+#plot(xts_bra[, c(1:4)])
+```
+
+## Autres manières de visualiser
+
+```{r}
+#plot(xts_bra[, c("LP", "PTF", "IK", "Age")],
+     #main="Composantes du PIB/pc")
+```
+

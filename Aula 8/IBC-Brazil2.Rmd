@@ -1,0 +1,252 @@
+---
+title: "Indice d'Activité Économique (IBC)-Brazil"
+author: "Henri Makika"
+date: "May 14, 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+## Packages importants pour cette analyse
+
+
+```{r }
+library(forecast) # Para ajuste e previsão do modelo ARIMA
+library(lmtest) # Por test de hipótese
+library(FinTS) # Para o test de heterocedasticidade
+library(urca) # Por test de Raiz Unitária
+library(tseries) # Para fazer o test de normalidade 
+library(TSA) # Test de lag
+library(readxl)
+```
+
+## Lecture de données
+
+```{r}
+ibc_bra = read_excel("~/Videos/Unicamp_IE 2019/HO:236A Times Series/Aula 8/IBC_BR.xlsx")
+```
+
+## Analise de dados 
+```{r}
+ibc = ts(ibc_bra[,2], start = c(2003, 1), frequency = 12)
+```
+
+## Gráfico da série
+```{r}
+layout(1:2) # par(mfrow = c(2, 1))
+
+plot(ibc, main = "Indice de Atividade Econômica", xlab = "Mês/Ano", 
+     ylab = "IBC-BR")
+acf(ibc, lag.max = 36, drop.lag.0 = TRUE, type = "correlation",
+    xlab = "lags", ylab = "FAC")
+```
+
+Notre serie a une tendance, et elle est aussi non stationnaire. En 2008 et 2009 à cause de la crise financière, nous remarquons un choc négatif dans notre graphique de la série. Mais est-il possible de conclure qu'il s'agit là de quebra estruturalle ?
+
+## Test de quebra estrutural
+Test de Raiz unitário
+
+1. Test de Zivot and Andrews
+
+```{r}
+za.ibc = ur.za(ibc, model = "trend")
+summary(za.ibc)
+plot(za.ibc)
+```
+
+Le test de Zivot et Andrews nous montre qu'il ne s'agit donc pas une *quebra estrutural* dans notre serie considérée. C'est juste un choc aléatoire endogène. Ce test montre que une seule *quebra estrutural* mais il y a encore d'autre. 
+
+
+## Test de Dickey-Fuller (DF and ADF)
+
+1. Modelo com intercepto e tendência (DF)
+```{r}
+df.ibc = ur.df(ibc, type = "trend", lags = 0)
+plot(df.ibc)
+```
+
+La fonction de l'autocorrélation partialle nous indique d'inclure deux retard, c'est à dire ARIMA (2, 0, 2). Bien que l'analyse graphique reste informelle mais elle nous dit quelque chose quand à la décision à prendre. Voyons avec l'analyse ADF:  
+```{r}
+adf.ibc = ur.df(ibc, type = "trend", lags = 12, selectlags = "BIC")
+plot(adf.ibc)
+summary(adf.ibc)
+```
+
+Contrairement au test DF, le test ADF nous indique qu'il faut inclure 0 retard pour MA et 1 retard pour AR, c'est à dire AR(1). 
+
+Tau3 = -3.43 (critical values for test statistics) est lié à la valeur -1.0412 (value of test-statistics) qui à l'interieur de l'intervalle (région critique) non critique. Alors dans ce cas on ne rejet pas l'hypothèse nulle au seuil de 5%. 
+
+2. Modelo com intercepto e sem tendência (Test ADF)
+
+```{r}
+adf.ibc2 = ur.df(ibc, type = "drift", lags = 12, selectlags = "BIC")
+plot(adf.ibc2)
+summary(adf.ibc2)
+```
+
+-2.88 n'appartient pas à la région critique, alors on ne rejet pas l'hypothèse nulle. 
+
+3. Modelo sem intercepto sem tendência
+```{r}
+adf.ibc3 = ur.df(ibc, type = "none", lags = 12, selectlags = "BIC")
+plot(adf.ibc3)
+summary(adf.ibc3)
+```
+
+1.23 n'appartient pas à la région cretique d'où on rejet l'hypothèse nulle. Et on conlut que la serie IBC-Brazil n'est pas stationnaire. 
+
+## Test de Philip-Perron
+```{r}
+pp.ibc = ur.pp(ibc, type = "Z-tau", model = "trend", lags = "short")
+plot(pp.ibc)
+summary(pp.ibc)
+```
+
+La formule utilisée ici est la suivante :
+
+$$\Delta Y_{t} = \mu+ \beta t + \tau Y_{t-1} + \varepsilon_t$$
+```{r}
+pp.ibc1 = ur.pp(ibc, type = "Z-tau", model = "constant", lags = "short")
+plot(pp.ibc1)
+summary(pp.ibc1)
+```
+
+## Test de DF-GLS (ERS-Elliot, Rotenberg e )
+
+1. Modelo avec tendance
+```{r}
+ers.ibc = ur.ers(ibc, type = "DF-GLS", model = "trend", lag.max = 2)
+plot(ers.ibc)
+summary(ers.ibc)
+```
+
+Ce test applique aussi la correction des données. Non rejeter l'hypothèse nulle, il y a aussi présence de racine unitaire.
+
+2. Modelo avec constante 
+```{r}
+ers.ibc1 = ur.ers(ibc, type = "DF-GLS", model = "constant", lag.max = 2)
+plot(ers.ibc1)
+summary(ers.ibc1)
+```
+
+Il ya présence de RU.
+
+## Test de KPSS
+
+1. Modèle avec tendance
+
+```{r}
+kpss.ibc = ur.kpss(ibc, type = "tau", lags = "short")
+plot(kpss.ibc)
+summary(kpss.ibc)
+```
+
+Les résidus ne sont pas aléatoire, le graphique de correlation non plus. Alors on rejet l'hypothèse nulle. La série n'est pas stationnaire.
+
+2. Modèle avec constante
+```{r}
+kpss.ibc1 = ur.kpss(ibc, type = "mu", lags = "short")
+plot(kpss.ibc1)
+summary(kpss.ibc1)
+```
+
+La serie est non stationnaire. Donc, On conclut que IBC-Brazil n'est pas stationnaire. 
+
+## Ajuste ARIMA
+
+Dado que IBC é não estacionário, devemos usar primeira diferença. Où seja :
+```{r}
+layout(1:1)
+acf(diff(ibc), drop.lag.0 = TRUE, type = "correlation")
+acf(diff(ibc), type = "partial")
+
+plot(diff(ibc))
+```
+
+À la foçon dont les deux graphique se présente, il est difficile de savoir si quel type de modèle ajusté. Ainsi, nous décidons de faire plusieurs modèles, puis nous allons décidé ce qu'il faut considéré.
+```{r}
+model1 = Arima(ibc, order = c(2, 1, 0))
+model2 = Arima(ibc, order = c(0, 1, 2))
+model3 = Arima(ibc, order = c(2, 1, 2))
+model4 = Arima(ibc, order = c(1, 1, 1))
+```
+
+Vérification de coefficients des modèles :
+```{r}
+coeftest(model1)
+coeftest(model2)
+coeftest(model3)
+coeftest(model4)
+```
+
+Modèle 1 les coefficients sont statistiquement différents de zéro. De même pour le modèle 2. Mais le modèle 3 non. Et le modèle 4 les coefficients sont aussi significatifs.
+
+Pour faire le choix d'un modèle on le fait avec le critère AIC E BIC le plus petit. Mais aussi on peut voir l'ecart type de chaque modèle. les classés dans un tableau si possible. Ou on peut voir aussi les résidus de chaque modèles :
+```{r}
+acf(model1$residuals, drop.lag.0 = TRUE)
+
+Box.test(model1$residuals, lag = 14, type = "Ljung-Box")
+```
+
+P-value = 0.77 est supérieur au seuil de 5%, on rejet l'hypothèse nulle. 
+```{r}
+for (i in 1:14) {
+  b = Box.test(model1$residuals, i, type = "Ljung-Box")$p.value
+  print(b)
+  }
+```
+
+Toutes les valeurs de p-value nous dit de rejeter l'hypothèse nulle. On peut aussi voir le graphique de Ljung-Box pour le p-value. 
+```{r}
+tsdiag(model1, gof.lag = 14)
+```
+
+Les p-values tout au long du graphique sont très hautes, on rejet H0.
+
+## Test de nomalité
+
+```{r}
+par(mfrow = c(1:2))
+hist(model1$residuals)
+plot(density(model1$residuals, kernel = "gaussian"))
+
+shapiro.test(model1$residuals)
+jarque.bera.test(model1$residuals)
+```
+
+Les tests de Shapiro et Jarque-Bera nous montre qu'il faut rejeter l'hypothèse nulle. 
+
+## Test de heterocedasticidade
+```{r}
+ArchTest(model1$residuals, lags = 4)
+ArchTest(model1$residuals, lags = 12)
+```
+
+Notre serie a un problème de l'hétérocédasticité.
+
+## Prvision
+```{r}
+layout(1:1)
+prev = forecast(model1, h = 12, level = c(0.90), lambda = 0, biasadj = FALSE)
+print(prev)
+```
+
+## Graphique de prevision
+```{r}
+plot(prev)
+```
+
+## Avaliar as previsões
+```{r}
+erro1 = matrix(NA, nrow = length(window(ibc, start = 2016)), ncol = 1)
+errop = matrix(NA, nrow = length(window(ibc, start = 2016)), ncol = 1)
+
+real = matrix(NA, nrow = length(window(ibc, start = 2016)), ncol = 1)
+previsto = matrix(NA, nrow = length(window(ibc, start = 2016)), ncol = 1)
+
+y = BoxCox(ibc, lambda = 0)
+
+
+```

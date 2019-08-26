@@ -1,0 +1,64 @@
+---
+title: "Croissance du Produit Intérieur Brut par habitant au Brésil"
+author: "Henri Makika"
+date: "May 22, 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+## Introduction
+
+Nous proposons dans cette analyse lʼévolution du produit intérieur brut par habitant de la Suède sur la période allant de 1870 à 2016 avec des données annualisées. Nous proposons également lʼévolution des principales composantes du produit intérieur brut *per capita* ainsi que les résultats de tests économétriques du modèle VAR estimé pour cet exercice. Ces composantes sont la productivité totale des facteurs
+(PTF), lʼintensité du capital (IK), la productivité du travail (LP), le produit intérieur brut par habitant (PIBpc) et l'âge moyen du stock de capital d'équipement, exprimé en année (Age).
+
+## Packages nécessaires pour estimation du modèle VAR
+
+```{r}
+library(readxl)
+library(urca)
+library(MASS)
+#library(MTS) # à installer
+library(vars)
+library(lmtest)
+```
+
+## Importation de données
+
+
+```{r}
+donnee = read_excel("~/Videos/Unicamp_IE 2019/HO:236A Times Series/TSBRA.xlsx")
+head(donnee)
+```
+
+## Visualisation graphique de données
+
+```{r}
+YEAR = donnee[,1]
+LP = donnee[,2]
+PTF = donnee[,3]
+IK = donnee[,4]
+PIBpc = donnee[,5]
+Age = donnee[,6]
+```
+
+Les données étant non stationnaire, nous travaillons en mettant les données en différence, puisque le modèle VAR veut que les données soient stationnaire.
+
+```{r}
+layout(matrix(1:6, nrow = 2, ncol = 2))
+plot.ts(YEAR, main = "Année")
+plot.ts(diff(LP), main = "Prod. du capital")
+plot.ts(diff(PTF), main = "Prod. totale facteurs")
+plot.ts(diff(IK), main = "Intensité du capital")
+plot.ts(diff(PIBpc), main = "Taux d'emploi")
+plot.ts(diff(Age), main = "Age moyen")
+```
+
+## Identification du modèle VAR
+
+```{r}
+ordre = VARselect(diff(donnee[-1]), lag.max = 10, type = "const")
+```
+
